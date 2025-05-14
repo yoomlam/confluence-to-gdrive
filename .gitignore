@@ -1,0 +1,7 @@
+.venv
+
+# API keys and secrets
+.env_local
+
+# Cache
+src/__pycache__

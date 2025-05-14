@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "confluence_exporter"
+version = "0.1.1"
+description = "Export Confluence pages to Google Drive"
+authors = ["Yoom"]
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+# For a stable and officially supported experience, it is best to stick with Python 3.11 until Firebase announces official support for Python 3.12.
+python = "^3.11"
+Flask = "^3.0.1"
+python-dotenv = "^1.1.0"
+atlassian-python-api = "^4.0.4"
+streamlit = "^1.45.1"
+
+[tool.poetry.scripts]
+app = 'src.main:main'
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
