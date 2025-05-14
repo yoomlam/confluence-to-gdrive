@@ -8,3 +8,13 @@ Server should run automatically when starting a workspace. To run manually, run:
 ```sh
 ./devserver.sh
 ```
+
+To run only the API service, run:
+```sh
+poetry run python src/api.py
+```
+
+To run the Streamlit app, run:
+```sh
+poetry run python -m streamlit run src/streamlit.py
+```
