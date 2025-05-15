@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "confluence_exporter"
 version = "0.1.1"
-description = "Export Confluence pages to Google Drive"
+description = "Exports Confluence pages to Google Drive"
 authors = ["Yoom"]
 packages = [{include = "src"}]
 
@@ -25,5 +25,9 @@ build-backend = "poetry.core.masonry.api"
 [tool.black]
 line-length = 100
 
-[tool.flake8]
-max-line-length = 100
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 100
