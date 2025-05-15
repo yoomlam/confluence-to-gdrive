@@ -17,7 +17,7 @@
         default.openFiles = [ "README.md" "src/index.html" "main.py" ];
       };
       # Runs when a workspace is (re)started
-      onStart = { run-server = "poetry run python -m streamlit run src/streamlit.py"; };
+      onStart = { run-server = "poetry run python -m streamlit run src/streamlit_ui.py"; };
     };
   };
 }

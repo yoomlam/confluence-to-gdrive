@@ -1,13 +1,10 @@
 import logging
 import os
-from dataclasses import dataclass
 from datetime import datetime
-from typing import NamedTuple, Self
 
-from anytree import Node, PreOrderIter, RenderTree
+from anytree import Node
 from dotenv import load_dotenv
 
-import confluence_client
 from confluence_client import ConfluenceClient
 
 logger = logging.getLogger(__name__)
@@ -21,7 +18,7 @@ load_dotenv(dotenv_path=".env_local", override=True)
 def get_confluence_spaces():
     cclient = ConfluenceClient()
     # logger.debug("Connected to Confluence: %r", cclient)
-    spaces = confluence_client.get_global_spaces(cclient)
+    spaces = cclient.get_global_spaces(cclient)
     # logger.debug(f"{len(spaces)} spaces: %r", [(s['key'], s['name'], s['id']) for s in spaces])
     return [{"key": s["key"], "name": s["name"], "id": s["id"]} for s in spaces]
 
@@ -88,4 +85,78 @@ def _recurse_export_html(cclient, parent_node: Node, path, depth=1):
         subpath = os.path.join(path, parent_node.title)
         os.makedirs(subpath, exist_ok=True)
         for child in child_nodes:
-            _recurse_export_html(exporter, child, subpath, depth + 1)
+            _recurse_export_html(cclient, child, subpath, depth + 1)
+
+
+def is_google_folder(gfile: dict) -> bool:
+    return gfile["mimeType"] == "application/vnd.google-apps.folder"
+
+
+def gfile_exists_locally(gfile: dict, local_folder: str, file_suffix: str = ".html") -> bool:
+    if is_google_folder(gfile):
+        full_path = os.path.join(local_folder, gfile["name"])
+        return os.path.isdir(full_path)
+
+    filename = f"{gfile['name']}{file_suffix}"
+    full_path = os.path.join(local_folder, filename)
+    return os.path.isfile(full_path)
+
+
+def sync_folder_to_gdrive(gclient, export_folder, folder_id, *, delete_gfiles=False, dry_run=False):
+    existing_gfiles = gclient.files_in_folder(folder_id)
+
+    if delete_gfiles:
+        # Delete GDrive files that no longer exist locally
+        for gfile in existing_gfiles:
+            logger.info("Checking %r", gfile)
+            if not is_google_folder(gfile) and not gfile_exists_locally(gfile, export_folder):
+                logger.info("Deleting %r from GDrive %r", gfile["name"], export_folder)
+                if not dry_run:
+                    gclient.delete_file(gfile["id"])
+
+    # Upload to GDrive, updating if file with same name exists
+    existing_gfilenames = {
+        f["name"]: f
+        for f in existing_gfiles
+        if f["mimeType"] != "application/vnd.google-apps.folder"
+    }
+    existing_gfolders = {
+        f["name"]: f
+        for f in existing_gfiles
+        if f["mimeType"] == "application/vnd.google-apps.folder"
+    }
+    logger.info("Existing gfiles: %r", existing_gfilenames)
+    logger.info("Existing gfolders: %r", existing_gfolders)
+
+    export_files = os.listdir(export_folder)
+    logger.info("Files in folder: %r", export_files)
+    for e_file in export_files:
+        # Check if e_file is a folder
+        subfolder_path = os.path.join(export_folder, e_file)
+        if os.path.isdir(subfolder_path):
+            if e_file not in existing_gfolders:
+                subfolder = gclient.create_drive_folder(e_file, folder_id)
+                subfolder_id = subfolder["id"]
+            else:
+                subfolder_id = existing_gfolders[e_file]["id"]
+            logger.info("Recurse into folder %r", e_file)
+            sync_folder_to_gdrive(gclient, subfolder_path, subfolder_id, delete_gfiles=delete_gfiles, dry_run=dry_run)
+            continue
+
+        html_filename = os.path.join(export_folder, e_file)
+        title = e_file.removesuffix(".html")
+        logger.info("title %r", title)
+        if title in existing_gfilenames:
+            file_id = existing_gfilenames[title]['id']
+            logger.info("  Updating %r in GDrive", title)
+            if not dry_run:
+                gclient.upload_to_google_drive(html_filename, folder_id, title, file_id)
+        else:
+            logger.info("  Uploading %r to GDrive", title)
+            if not dry_run:
+                gclient.upload_to_google_drive(html_filename, folder_id, title)
+
+    # for cp in export_files:
+    #     subchild_pages = get_child_pages(cp['id'])
+    #     logger.info("Subchild pages of %r", cp['title'])
+    #     logger.info([(scp['title'], scp['id']) for scp in subchild_pages])
