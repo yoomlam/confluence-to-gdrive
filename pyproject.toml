@@ -12,6 +12,7 @@ Flask = "^3.0.1"
 python-dotenv = "^1.1.0"
 atlassian-python-api = "^4.0.4"
 streamlit = "^1.45.1"
+streamlit-tree-select = "^0.0.5"
 
 [tool.poetry.scripts]
 app = 'src.main:main'
@@ -22,3 +23,6 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 100
+
+[tool.flake8]
+max-line-length = 100

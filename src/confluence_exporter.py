@@ -46,9 +46,10 @@ class ConfluenceExporter:
         )
 
     def get_child_pages(self, page_id: str):
+        # TODO: use pagination
         return list(
             self.client.get_page_child_by_type(
-                page_id, start=None, limit=None, expand=None
+                page_id, start=None, limit=None, expand="history.lastUpdated"
             )
         )
 
@@ -57,5 +58,3 @@ class ConfluenceExporter:
         child_pages = self.get_child_pages(page_id)
         return child_pages
 
-    def new_funct():
-        pass

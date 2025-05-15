@@ -1207,6 +1207,21 @@ watchdog = {version = ">=2.1.5,<7", markers = "platform_system != \"Darwin\""}
 snowflake = ["snowflake-connector-python (>=3.3.0) ; python_version < \"3.12\"", "snowflake-snowpark-python[modin] (>=1.17.0) ; python_version < \"3.12\""]
 
 [[package]]
+name = "streamlit-tree-select"
+version = "0.0.5"
+description = "A simple and elegant checkbox tree for Streamlit."
+optional = false
+python-versions = ">=3.6"
+groups = ["main"]
+files = [
+    {file = "streamlit-tree-select-0.0.5.tar.gz", hash = "sha256:985f5d4c357c403723fd69d4c4fca38193e0f9105974ec36259c43d9e6b78044"},
+    {file = "streamlit_tree_select-0.0.5-py3-none-any.whl", hash = "sha256:9bfee4d9394fcb0b3e98801cca32f179c85f9f7fdf7005904bf88811f73db05c"},
+]
+
+[package.dependencies]
+streamlit = ">=0.63"
+
+[[package]]
 name = "tenacity"
 version = "9.1.2"
 description = "Retry code until it succeeds"
@@ -1451,4 +1466,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "2952f134b15e6a3564bc8c3e500687113c2dd3b87e3d4af35e72df380ece407e"
+content-hash = "8b220d7260d070328319a8fa3517534d7546b544e8fcbd5642de0c7c99cc2874"
