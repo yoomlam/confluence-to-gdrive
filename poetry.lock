@@ -26,6 +26,18 @@ doc = ["docutils", "jinja2", "myst-parser", "numpydoc", "pillow (>=9,<10)", "pyd
 save = ["vl-convert-python (>=1.7.0)"]
 
 [[package]]
+name = "anytree"
+version = "2.13.0"
+description = "Powerful and Lightweight Python Tree Data Structure with various plugins"
+optional = false
+python-versions = "<4.0,>=3.9.2"
+groups = ["main"]
+files = [
+    {file = "anytree-2.13.0-py3-none-any.whl", hash = "sha256:4cbcf10df36b1f1cba131b7e487ff3edafc9d6e932a3c70071b5b768bab901ff"},
+    {file = "anytree-2.13.0.tar.gz", hash = "sha256:c9d3aa6825fdd06af7ebb05b4ef291d2db63e62bb1f9b7d9b71354be9d362714"},
+]
+
+[[package]]
 name = "atlassian-python-api"
 version = "4.0.4"
 description = "Python Atlassian REST API Wrapper"
@@ -1466,4 +1478,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "8b220d7260d070328319a8fa3517534d7546b544e8fcbd5642de0c7c99cc2874"
+content-hash = "059781e6961b448b113b7a2e809bc91447582c201e44004a8a9c592b94fb9cb6"

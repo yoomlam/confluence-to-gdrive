@@ -44,14 +44,27 @@ def get_confluence_pages(space_key, page_title):
 
 from typing import Self
 from dataclasses import dataclass
+from anytree import Node, PreOrderIter, RenderTree
 
+# @dataclass
+# class ConfluencePage:
+#     id: str
+#     title: str
+#     modified: str
+#     childs: list[Self] | None = None
 
-@dataclass
-class ConfluencePage:
-    id: str
-    title: str
-    modified: str
-    childs: list[Self] | None = None
+from datetime import datetime
+
+def create_node(page, parent_node: Node | None = None):
+    timestamp_str = page["history"]["lastUpdated"]["when"]
+    mod_timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ")
+    return Node(
+        page["id"],
+        parent=parent_node,
+        id=page["id"],
+        title=page["title"],
+        modified=mod_timestamp,
+    )
 
 
 def recurse_pages(space_key, page_title):
@@ -59,19 +72,24 @@ def recurse_pages(space_key, page_title):
     exporter = ConfluenceExporter()
     page_id = exporter.client.get_page_id(space_key, page_title)
     page = exporter.client.get_page_by_id(page_id, expand="body.export_view,history.lastUpdated")
-    root_page = ConfluencePage(page_id, page_title, page["history"]["lastUpdated"]["when"])
-    recurse_page(exporter, root_page)
-    return flatten_page_childs(root_page)
+    root_node = create_node(page)
+    # root_node.
+    recurse_page(exporter, root_node)
+    return root_node
 
 
-def recurse_page(exporter, page, depth=1):
-    logger.info("TODO: export page %r", page)
-    child_pages = exporter.get_child_pages(page.id)
-    page.childs = [ConfluencePage(p["id"], p["title"], p["history"]["lastUpdated"]["when"]) for p in child_pages]
+def recurse_page(exporter, parent_node, depth=1):
+    logger.info("TODO: export page %r", parent_node.title)
+    child_pages = exporter.get_child_pages(parent_node.id)
+    child_nodes = [create_node(p, parent_node) for p in child_pages]
     if child_pages:
-        logger.info("TODO: create folder for page %r", page.title)
-        for child in page.childs:
+        logger.info("TODO: create folder for page %r", parent_node.title)
+        for child in child_nodes:
             recurse_page(exporter, child, depth + 1)
+
+
+def flatten_page_tree(root_node):
+    return [node for node in PreOrderIter(root_node)]
 
 
 def flatten_page_childs(page):
