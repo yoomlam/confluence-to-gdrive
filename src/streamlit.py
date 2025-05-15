@@ -1,11 +1,17 @@
 import logging
 import os
-import requests
-import streamlit as st
-from streamlit_tree_select import tree_select
+from dataclasses import dataclass
+from datetime import datetime
+from typing import NamedTuple
+
 import pandas as pd
-from main import get_confluence_pages, recurse_pages
+import requests
+from anytree import Node, search
+from streamlit_tree_select import tree_select
+
+import streamlit as st
 from main import *
+from main import get_confluence_pages, build_tree
 from ui_helpers import *
 
 logger = logging.getLogger(__name__)
@@ -38,17 +44,11 @@ st.write("Hello world")
 
 ss = st.session_state
 
-from datetime import datetime
 
 # Add button to query API
 space_key = st.text_input("space key", "NL")
 # page_title = st.text_input("page title", "Design and Prototyping")
 page_title = st.text_input("page title", "Product")
-
-from typing import NamedTuple
-from anytree import search
-from anytree import Node
-from dataclasses import dataclass
 
 
 if st.button("Query spaces"):
@@ -67,8 +67,8 @@ column_config = None
     "parent": "Parent",
 }
 if st.button("Query pages"):
-    ss.root_node = recurse_pages(space_key, page_title)
-    ss.pages_response = [PageNode(n).as_row() for n in flatten_page_tree(ss.root_node)]
+    ss.root_node = build_tree(space_key, page_title)
+    ss.pages_response = [PageNode(n).as_row() for n in PreOrderIter(ss.root_node)]
     ss.nodes = {node.id: node for node in PreOrderIter(ss.root_node)}
 
 after_date = st.date_input("after date", "2024-08-25", format="YYYY-MM-DD")
@@ -164,7 +164,6 @@ ss.pages_response = [
     },
 ]
 
-from anytree import search
 
 def update_tree():
     ss.nodes = generate_dict_from_tree(ss.root_node)
@@ -176,17 +175,17 @@ def update_tree():
 
 if st.button("Filter"):
     exclude_old_nodes(ss.root_node, timestamp)
-    ss.pages_response = [PageNode(n).as_row() for n in flatten_page_tree(ss.root_node)]
+    ss.pages_response = [PageNode(n).as_row() for n in PreOrderIter(ss.root_node)]
 
-    ss.excluded_pages = [
-        PageNode(n).as_row() for n in flatten_page_tree(ss.root_node) if not getattr(n, "include", True)
-    ]
+    # ss.excluded_pages = [
+    #     PageNode(n).as_row() for n in PreOrderIter(ss.root_node) if not getattr(n, "include", True)
+    # ]
 
-    ss.included_pages = [
-        PageNode(n).as_row()
-        for n in flatten_page_tree(ss.root_node)
-        if getattr(n, "include", True)
-    ]
+    # ss.included_pages = [
+    #     PageNode(n).as_row()
+    #     for n in PreOrderIter(ss.root_node)
+    #     if getattr(n, "include", True)
+    # ]
 
     update_tree()
 
@@ -212,42 +211,65 @@ if "pages_response" in ss:
         column_order=column_order,
         column_config=column_config,
     )
-st.subheader("excluded_pages")
 if "excluded_pages" in ss:
+    st.subheader("excluded_pages")
     st.dataframe(data=ss.excluded_pages, column_order=column_order, column_config=column_config)
-st.subheader("included_pages")
 if "included_pages" in ss:
+    st.subheader("included_pages")
     st.dataframe(data=ss.included_pages, column_order=column_order, column_config=column_config)
 
 
 if "nodes" not in ss:
-    ss.nodes = [{'label': 'Product', 'value': '927367268'},
- {'label': 'Product subpages',
-  'value': 'children_927367268',
-  'children': [{'label': 'Feature Brief: Extensible data sources',
-    'value': '1203175560'},
-   {'label': 'Feature Brief: Extensible data sources subpages',
-    'value': 'children_1203175560',
-    'children': [{'label': 'Tech spec for ingesting policy PDFs',
-      'value': '1233616975'},
-     {'label': 'Evaluation Criteria for PDF-Parsing Tools',
-      'value': '1291419695'},
-     {'label': 'Tech Spec for improving PDF parsing', 'value': '1305083960'},
-     {'label': 'Tech Spec for improving PDF parsing subpages',
-      'value': 'children_1305083960',
-      'children': [{'label': 'Sample inputs and outputs for test cases',
-        'value': '1307967493'}]},
-     {'label': 'Tech Spec: Separating Chunks and Citations',
-      'value': '1342177290'},
-     {'label': 'Lightweight ingestion script for web sources',
-      'value': '1384448006'}]},
-   {'label': 'Tech Spec for Implementing Conversation History',
-    'value': '1404895236'},
-   {'label': 'Chatbot versioning strategy', 'value': '1417838624'},
-   {'label': 'Tech Spec: Automating QA evaluation pipeline for DST chat',
-    'value': '1590591516'},
-   {'label': '[DRAFT] Tech Spec: Exploration of expert curation for DST evaluation',
-    'value': '1549631705'}]}]
+    ss.nodes = [
+        {"label": "Product", "value": "927367268"},
+        {
+            "label": "Product subpages",
+            "value": "children_927367268",
+            "children": [
+                {"label": "Feature Brief: Extensible data sources", "value": "1203175560"},
+                {
+                    "label": "Feature Brief: Extensible data sources subpages",
+                    "value": "children_1203175560",
+                    "children": [
+                        {"label": "Tech spec for ingesting policy PDFs", "value": "1233616975"},
+                        {
+                            "label": "Evaluation Criteria for PDF-Parsing Tools",
+                            "value": "1291419695",
+                        },
+                        {"label": "Tech Spec for improving PDF parsing", "value": "1305083960"},
+                        {
+                            "label": "Tech Spec for improving PDF parsing subpages",
+                            "value": "children_1305083960",
+                            "children": [
+                                {
+                                    "label": "Sample inputs and outputs for test cases",
+                                    "value": "1307967493",
+                                }
+                            ],
+                        },
+                        {
+                            "label": "Tech Spec: Separating Chunks and Citations",
+                            "value": "1342177290",
+                        },
+                        {
+                            "label": "Lightweight ingestion script for web sources",
+                            "value": "1384448006",
+                        },
+                    ],
+                },
+                {"label": "Tech Spec for Implementing Conversation History", "value": "1404895236"},
+                {"label": "Chatbot versioning strategy", "value": "1417838624"},
+                {
+                    "label": "Tech Spec: Automating QA evaluation pipeline for DST chat",
+                    "value": "1590591516",
+                },
+                {
+                    "label": "[DRAFT] Tech Spec: Exploration of expert curation for DST evaluation",
+                    "value": "1549631705",
+                },
+            ],
+        },
+    ]
 if "checked" not in ss:
     ss.checked = [
         "927367268",
@@ -262,13 +284,15 @@ if "checked" not in ss:
     ]
 
 st.subheader("tree")
-ss.nodes
-ss.checked
+# ss.nodes
+# ss.checked
 return_select = tree_select(ss.nodes, checked=ss.checked, show_expand_all=True)
-st.write(return_select)
+st.write(return_select["checked"])
+
+[]
+
 
 # Test code that calls API instead of using main.py
-
 if hasattr(st, "already_started_server"):
     ss.api_response = ""
     if st.button("Call API"):

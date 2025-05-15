@@ -1,7 +1,9 @@
-import os
 import logging
+import os
 import re
+
 from atlassian import Confluence
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -34,13 +36,13 @@ def get_all_entities(api_call) -> list:
         start += limit
 
 
-class ConfluenceExporter:
+class ConfluenceClient:
     def __init__(self, url: str | None = None):
-        self.client = create_client(url)
+        self.api = create_client(url)
 
     def get_global_spaces(self, limit: int = 30):
         return get_all_entities(
-            lambda start: self.client.get_all_spaces(
+            lambda start: self.api.get_all_spaces(
                 start=start, limit=limit, space_type="global"
             )
         )
@@ -48,13 +50,25 @@ class ConfluenceExporter:
     def get_child_pages(self, page_id: str):
         # TODO: use pagination
         return list(
-            self.client.get_page_child_by_type(
+            self.api.get_page_child_by_type(
                 page_id, start=None, limit=None, expand="history.lastUpdated"
             )
         )
 
     def list_pages(self, space: str, title: str):
-        page_id = self.client.get_page_id(space, title)
+        page_id = self.api.get_page_id(space, title)
         child_pages = self.get_child_pages(page_id)
         return child_pages
 
+    def export_page_html(self, page_id, folder):
+        # Use export_view -- https://stackoverflow.com/a/50959315/23458508
+        page = self.api.get_page_by_id(page_id, expand="body.export_view")
+        html_value=page['body']['export_view']['value']
+
+        tree = BeautifulSoup(html_value, "html.parser")
+        base_filename = page['title']
+        html_filename = os.path.join(folder, f"{base_filename}.html")
+        with open(html_filename, "w", encoding="utf-8") as f:
+            f.write(tree.prettify())
+
+        return html_filename

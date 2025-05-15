@@ -1,5 +1,6 @@
 from anytree import Node, PreOrderIter
 
+
 class PageNode:
     def __init__(self, node: Node):
         self.node = node
