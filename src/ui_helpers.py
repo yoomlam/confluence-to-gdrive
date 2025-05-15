@@ -15,8 +15,7 @@ class PageNode:
 
 def exclude_old_nodes(root_node, timestamp):
     for n in PreOrderIter(root_node):
-        if n.modified < timestamp:
-            n.include = False
+        n.include = n.modified >= timestamp
 
 
 def generate_dict_from_tree(node):
@@ -28,8 +27,14 @@ def generate_dict_from_tree(node):
         "value": node.id,
     }
     if node.children:
-        node_dict["children"] = [generate_dict_from_tree(child) for child in node.children]
-    return node_dict
+        parent_dict = {
+            "label": f"{node.title} subpages",
+            "value": f"children_{node.id}",
+        }
+        parent_dict["children"] = [c for child in node.children for c in generate_dict_from_tree(child)]
+        return [node_dict, parent_dict]    
+    
+    return [node_dict]
 
 
 

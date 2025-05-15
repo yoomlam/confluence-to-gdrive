@@ -164,19 +164,31 @@ ss.pages_response = [
     },
 ]
 
+from anytree import search
+
+def update_tree():
+    ss.nodes = generate_dict_from_tree(ss.root_node)
+    ss.checked = [
+        node.id
+        for node in search.findall(ss.root_node, filter_=lambda n: getattr(n, "include", True))
+    ]
+
+
 if st.button("Filter"):
     exclude_old_nodes(ss.root_node, timestamp)
     ss.pages_response = [PageNode(n).as_row() for n in flatten_page_tree(ss.root_node)]
 
     ss.excluded_pages = [
-        PageNode(n).as_row() for n in flatten_page_tree(ss.root_node) if getattr(n, "include", True)
+        PageNode(n).as_row() for n in flatten_page_tree(ss.root_node) if not getattr(n, "include", True)
     ]
 
     ss.included_pages = [
         PageNode(n).as_row()
         for n in flatten_page_tree(ss.root_node)
-        if not getattr(n, "include", True)
+        if getattr(n, "include", True)
     ]
+
+    update_tree()
 
 
 def color_survived(val):
@@ -208,71 +220,51 @@ if "included_pages" in ss:
     st.dataframe(data=ss.included_pages, column_order=column_order, column_config=column_config)
 
 
-nodes = [
-    {
-        "label": "Product",
-        "value": "927367268",
-        "children": [
-            {
-                "label": "Feature Brief: Extensible data sources",
-                "value": "1203175560",
-                "children": [
-                    {"label": "Tech spec for ingesting policy PDFs", "value": "1233616975"},
-                    {"label": "Evaluation Criteria for PDF-Parsing Tools", "value": "1291419695"},
-                    {
-                        "label": "Tech Spec for improving PDF parsing",
-                        "value": "1305083960",
-                        "children": [
-                            {
-                                "label": "Sample inputs and outputs for test cases",
-                                "value": "1307967493",
-                            }
-                        ],
-                    },
-                    {"label": "Tech Spec: Separating Chunks and Citations", "value": "1342177290"},
-                    {
-                        "label": "Lightweight ingestion script for web sources",
-                        "value": "1384448006",
-                    },
-                ],
-            },
-            {"label": "Tech Spec for Implementing Conversation History", "value": "1404895236"},
-            {"label": "Chatbot versioning strategy", "value": "1417838624"},
-            {
-                "label": "Tech Spec: Automating QA evaluation pipeline for DST chat",
-                "value": "1590591516",
-            },
-            {
-                "label": "[DRAFT] Tech Spec: Exploration of expert curation for DST evaluation",
-                "value": "1549631705",
-            },
-        ],
-    }
-]
-checked = [
-    "927367268",
-    "1203175560",
-    "1233616975",
-    "1291419695",
-    "1305083960",
-    "1404895236",
-    "1417838624",
-    "1590591516",
-    "1549631705",
-]
-# Create nodes to display
-if "root_node" in ss:
-    nodes = [generate_dict_from_tree(ss.root_node)]
-    nodes
-
-    from anytree import search
-
-    checked = [
-        node.id
-        for node in search.findall(ss.root_node, filter_=lambda n: getattr(n, "include", True))
+if "nodes" not in ss:
+    ss.nodes = [{'label': 'Product', 'value': '927367268'},
+ {'label': 'Product subpages',
+  'value': 'children_927367268',
+  'children': [{'label': 'Feature Brief: Extensible data sources',
+    'value': '1203175560'},
+   {'label': 'Feature Brief: Extensible data sources subpages',
+    'value': 'children_1203175560',
+    'children': [{'label': 'Tech spec for ingesting policy PDFs',
+      'value': '1233616975'},
+     {'label': 'Evaluation Criteria for PDF-Parsing Tools',
+      'value': '1291419695'},
+     {'label': 'Tech Spec for improving PDF parsing', 'value': '1305083960'},
+     {'label': 'Tech Spec for improving PDF parsing subpages',
+      'value': 'children_1305083960',
+      'children': [{'label': 'Sample inputs and outputs for test cases',
+        'value': '1307967493'}]},
+     {'label': 'Tech Spec: Separating Chunks and Citations',
+      'value': '1342177290'},
+     {'label': 'Lightweight ingestion script for web sources',
+      'value': '1384448006'}]},
+   {'label': 'Tech Spec for Implementing Conversation History',
+    'value': '1404895236'},
+   {'label': 'Chatbot versioning strategy', 'value': '1417838624'},
+   {'label': 'Tech Spec: Automating QA evaluation pipeline for DST chat',
+    'value': '1590591516'},
+   {'label': '[DRAFT] Tech Spec: Exploration of expert curation for DST evaluation',
+    'value': '1549631705'}]}]
+if "checked" not in ss:
+    ss.checked = [
+        "927367268",
+        "1203175560",
+        "1233616975",
+        "1291419695",
+        "1305083960",
+        "1404895236",
+        "1417838624",
+        "1590591516",
+        "1549631705",
     ]
+
 st.subheader("tree")
-return_select = tree_select(nodes, checked=checked, show_expand_all=True)
+ss.nodes
+ss.checked
+return_select = tree_select(ss.nodes, checked=ss.checked, show_expand_all=True)
 st.write(return_select)
 
 # Test code that calls API instead of using main.py
