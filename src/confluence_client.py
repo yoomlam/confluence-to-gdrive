@@ -60,15 +60,21 @@ class ConfluenceClient:
         child_pages = self.get_child_pages(page_id)
         return child_pages
 
-    def export_page_html(self, page_id, folder):
+    def export_page_html(self, page_id, folder, create_ancestor_folders=True):
         # Use export_view -- https://stackoverflow.com/a/50959315/23458508
-        page = self.api.get_page_by_id(page_id, expand="body.export_view")
-        html_value=page['body']['export_view']['value']
+        page = self.api.get_page_by_id(page_id, expand="space,ancestors,body.export_view")
+        page_link = f"{page['_links']['base']}{page['_links']['webui']}"
+        if create_ancestor_folders:
+            parent_folders=[ap['title'] for ap in page['ancestors']]
+            folder=os.path.join(folder, page['space']['name'], *parent_folders)
+            logger.info("Parent folder %r", folder)
+            os.makedirs(folder, exist_ok=True)
 
+        html_value=page['body']['export_view']['value']
         tree = BeautifulSoup(html_value, "html.parser")
-        base_filename = page['title']
-        html_filename = os.path.join(folder, f"{base_filename}.html")
+        html_filename = os.path.join(folder, f"{page['title']}.html")
         with open(html_filename, "w", encoding="utf-8") as f:
+            f.write(f"(Source: <a href={page_link}>{page['title']}</a>)")
             f.write(tree.prettify())
 
         return html_filename

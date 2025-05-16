@@ -5,6 +5,7 @@ from streamlit_embeded import st_embeded
 class PageNode:
     def __init__(self, node: Node):
         self.node = node
+        node.include = True
 
     def as_row(self):
         return {
@@ -12,7 +13,7 @@ class PageNode:
             "title": self.node.title,
             "modified": self.node.modified,
             "parent": self.node.parent.title if self.node.parent else None,
-            "include": getattr(self.node, "include", True),
+            "include": self.node.include,
         }
 
 

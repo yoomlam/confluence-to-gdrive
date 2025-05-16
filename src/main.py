@@ -74,18 +74,14 @@ def export_html_folder(root_node: Node, folder: str):
     _recurse_export_html(cclient, root_node, folder)
 
 
-def _recurse_export_html(cclient, parent_node: Node, path, depth=1):
+def _recurse_export_html(cclient, parent_node: Node, folder, depth=1):
     if parent_node.include:
         logger.info("Exporting page %r", parent_node.title)
-        filename = cclient.export_page_html(parent_node.id, path)
+        filename = cclient.export_page_html(parent_node.id, folder, create_ancestor_folders=True)
         logger.info("Exported page %r", filename)
-    child_nodes = parent_node.children
-    if child_nodes:
-        logger.info("Creating folder for page %r", parent_node.title)
-        subpath = os.path.join(path, parent_node.title)
-        os.makedirs(subpath, exist_ok=True)
-        for child in child_nodes:
-            _recurse_export_html(cclient, child, subpath, depth + 1)
+
+    for child in parent_node.children or []:
+        _recurse_export_html(cclient, child, folder, depth + 1)
 
 
 def is_google_folder(gfile: dict) -> bool:
@@ -108,8 +104,13 @@ def sync_folder_to_gdrive(gclient, export_folder, folder_id, *, delete_gfiles=Fa
     if delete_gfiles:
         # Delete GDrive files that no longer exist locally
         for gfile in existing_gfiles:
+            if gfile["name"].startswith("."):
+                logger.info("Skipping hidden file %r", gfile["name"])
+                continue
+            if is_google_folder(gfile):
+                continue
             logger.info("Checking %r", gfile)
-            if not is_google_folder(gfile) and not gfile_exists_locally(gfile, export_folder):
+            if not gfile_exists_locally(gfile, export_folder):
                 logger.info("Deleting %r from GDrive %r", gfile["name"], export_folder)
                 if not dry_run:
                     gclient.delete_file(gfile["id"])
