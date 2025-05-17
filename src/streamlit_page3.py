@@ -24,16 +24,11 @@ if "data_queues" not in ss:
 st.write(ss.data_queues)
 
 empty_container = st.empty()
-# if any(ss.thread_lives):
-#     st.write(f"{sum(ss.thread_lives)} Threads running")
 empty_container.write(f"{sum(ss.thread_lives)} Threads running")
 
 bar = st.progress(1.0-(sum(ss.thread_lives)/len(ss.thread_lives)))
 
 frag_container = st.container()
-
-if "stream" not in ss:
-    ss.stream = False
 
 def start_threads():  # any(ss.thread_lives)):
     class WorkerThread(Thread):
@@ -62,12 +57,7 @@ def start_threads():  # any(ss.thread_lives)):
         thread.start()
     ss.thread_lives = [True] * len(ss.delays)
 
-    # ss.stream = True
 
-
-# Gotcha: Use the `on_click=` callback (rather than `if st.button(...):`) to disable/refresh the button after a click
-# https://discuss.streamlit.io/t/streamlit-button-disable-enable/31293
-# https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state#use-callbacks-to-update-session-state
 st.button("Run threads", disabled=any(ss.thread_lives), on_click=start_threads)
 
 st.sidebar.slider(
@@ -95,10 +85,10 @@ for i, delay in enumerate(ss.delays):
 
 @st.fragment(run_every=update_every)
 def update_status():
-    # frag_container.write("frag update_status")
+    frag_container.write("frag update_status")
     if "threads" not in ss:
         return
-    # frag_container.write(f"{update_every} {ss.update_every}")
+    frag_container.write(f"{update_every} {ss.update_every}")
     for i, thread in enumerate(ss.threads):
         if ss.thread_lives[i]:
             if thread.is_alive():

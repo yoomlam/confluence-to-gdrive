@@ -2,9 +2,9 @@ import functools
 import logging
 import os
 from datetime import datetime
+from queue import Queue
 
 from anytree import Node, PreOrderIter
-
 from dotenv import load_dotenv
 
 from confluence_client import ConfluenceClient
@@ -76,21 +76,24 @@ def _recurse_build_tree(cclient, parent_node, depth=1):
         for child in child_nodes:
             _recurse_build_tree(cclient, child, depth + 1)
 
+class LoggerQueue:
+    def put(self, obj):
+        logger.info(obj)
 
-def export_html_folder(root_node: Node, folder: str):
+def export_html_folder(root_node: Node, folder: str, queue: Queue | LoggerQueue):
     cclient = ConfluenceClient()
     os.makedirs(folder, exist_ok=True)
-    _recurse_export_html(cclient, root_node, folder)
+    _recurse_export_html(cclient, root_node, folder, queue)
 
 
-def _recurse_export_html(cclient, parent_node: Node, folder, depth=1):
+def _recurse_export_html(cclient, parent_node: Node, folder, queue: Queue, depth=1):
     if parent_node.include:
         logger.info("Exporting page %r", parent_node.title)
         filename = cclient.export_page_html(parent_node.id, folder, create_ancestor_folders=True)
-        logger.info("Exported page %r", filename)
+        queue.put(f"Saved page {parent_node.title!r} to `{filename}`")
 
     for child in parent_node.children or []:
-        _recurse_export_html(cclient, child, folder, depth + 1)
+        _recurse_export_html(cclient, child, folder, queue, depth + 1)
 
 
 def is_google_folder(gfile: dict) -> bool:
