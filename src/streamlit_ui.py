@@ -1,5 +1,7 @@
 import streamlit as st
 
+# Useful: https://edit.share.stlite.net/
+
 # Define the pages
 main_page = st.Page("streamlit_main.py", title="Main Page", icon="🎈")
 page_2 = st.Page("streamlit_page2.py", title="Page 2", icon="❄️")

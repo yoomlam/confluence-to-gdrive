@@ -68,11 +68,12 @@ class ConfluenceClient:
             parent_folders=[ap['title'] for ap in page['ancestors']]
             folder=os.path.join(folder, page['space']['name'], *parent_folders)
             logger.info("Parent folder %r", folder)
-            os.makedirs(folder, exist_ok=True)
+        os.makedirs(folder, exist_ok=True)
 
         html_value=page['body']['export_view']['value']
         tree = BeautifulSoup(html_value, "html.parser")
-        html_filename = os.path.join(folder, f"{page['title']}.html")
+        valid_filename = re.sub(r"/", "_", page["title"].strip())
+        html_filename = os.path.join(folder, f"{valid_filename}.html")
         with open(html_filename, "w", encoding="utf-8") as f:
             f.write(f"(Source: <a href={page_link}>{page['title']}</a>)")
             f.write(tree.prettify())

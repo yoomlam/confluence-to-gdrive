@@ -81,11 +81,17 @@ else:
 
 f"update_every = {update_every}. {ss.update_every}"
 
+if "thread_results" not in ss:
+    ss.thread_results=[[] for _ in range(len(ss.delays))]
 
 result_containers = []
 for i, delay in enumerate(ss.delays):
     st.header(f"Thread {i} (delay: {delay})")
-    result_containers.append(st.container())
+    r_cont=st.container()
+    result_containers.append(r_cont)
+    for r in ss.thread_results[i]:
+        r_cont.write(r)
+    
 
 @st.fragment(run_every=update_every)
 def update_status():
@@ -100,11 +106,11 @@ def update_status():
                 while not data_queue.empty():
                     item = data_queue.get()
                     if item:
-                        result_containers[i].write(f"item: {item}")
+                        ss.thread_results[i].append(f"item: {item}")
                     else:
-                        result_containers[i].write(f"Error in thread! Use threading.excepthook to catch it")
+                        ss.thread_results[i].append("Error in thread! Use threading.excepthook to catch it")
             else:
-                result_containers[i].write(thread.return_value)
+                ss.thread_results[i].append(thread.return_value)
                 ss.thread_lives[i] = False
 
     empty_container.write(f"{sum(ss.thread_lives)} Threads running")
@@ -113,7 +119,7 @@ def update_status():
 
     if not any(ss.thread_lives):
         # https://docs.streamlit.io/develop/tutorials/execution-flow/trigger-a-full-script-rerun-from-a-fragment
-        st.rerun()  # To update update_every, but it also clears the result_containers
+        st.rerun()  # To update update_every
 
     st.write(st.session_state)
 

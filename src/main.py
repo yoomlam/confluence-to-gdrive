@@ -1,8 +1,10 @@
+import functools
 import logging
 import os
 from datetime import datetime
 
-from anytree import Node
+from anytree import Node, PreOrderIter
+
 from dotenv import load_dotenv
 
 from confluence_client import ConfluenceClient
@@ -15,18 +17,22 @@ load_dotenv()
 load_dotenv(dotenv_path=".env_local", override=True)
 
 
+@functools.cache
+def confluence_client():
+    return ConfluenceClient()
+
+def confluence_base_url():
+    return confluence_client().api.url
+
 def get_confluence_spaces():
-    cclient = ConfluenceClient()
-    # logger.debug("Connected to Confluence: %r", cclient)
-    spaces = cclient.get_global_spaces(cclient)
+    spaces = confluence_client().get_global_spaces()
     # logger.debug(f"{len(spaces)} spaces: %r", [(s['key'], s['name'], s['id']) for s in spaces])
-    return [{"key": s["key"], "name": s["name"], "id": s["id"]} for s in spaces]
+    return [{"space_key": s["key"], "name": s["name"], "id": s["id"], "webui": s["_links"]["webui"]} for s in spaces]
 
 
 def get_confluence_pages(space_key, page_title):
     logger.debug("space_key=%r, page_title=%r", space_key, page_title)
-    cclient = ConfluenceClient()
-    pages = cclient.list_pages(space_key, page_title)
+    pages = confluence_client().list_pages(space_key, page_title)
     return [
         {
             "folder": page_title,
@@ -38,13 +44,15 @@ def get_confluence_pages(space_key, page_title):
     ]
 
 
-def build_tree(space_key, page_title):
-    logger.debug("space_key=%r, page_title=%r", space_key, page_title)
+def query_pages_as_tree(space_key, page_title):
+    logger.info("space_key=%r, page_title=%r", space_key, page_title)
     cclient = ConfluenceClient()
     page_id = cclient.api.get_page_id(space_key, page_title)
     page = cclient.api.get_page_by_id(page_id, expand="body.export_view,history.lastUpdated")
     root_node = _create_node(page)
     _recurse_build_tree(cclient, root_node)
+    for n in PreOrderIter(root_node):
+        n.link = f"{cclient.api.url}{n.webui}"
     return root_node
 
 
@@ -57,6 +65,7 @@ def _create_node(page, parent_node: Node | None = None):
         id=page["id"],
         title=page["title"],
         modified=mod_timestamp,
+        webui = page['_links']['webui']
     )
 
 
@@ -147,6 +156,7 @@ def sync_folder_to_gdrive(gclient, export_folder, folder_id, *, delete_gfiles=Fa
         html_filename = os.path.join(export_folder, e_file)
         title = e_file.removesuffix(".html")
         logger.info("title %r", title)
+        # TODO: check timestamps and config to determine if update/upload is done
         if title in existing_gfilenames:
             file_id = existing_gfilenames[title]['id']
             logger.info("  Updating %r in GDrive", title)

@@ -1,11 +1,17 @@
+import logging
 import os
 from anytree import Node, PreOrderIter
 from streamlit_embeded import st_embeded
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
+
 
 class PageNode:
     def __init__(self, node: Node):
         self.node = node
-        node.include = True
+        if not hasattr(node, "include"):
+            node.include = True
 
     def as_row(self):
         return {
@@ -14,12 +20,16 @@ class PageNode:
             "modified": self.node.modified,
             "parent": self.node.parent.title if self.node.parent else None,
             "include": self.node.include,
+            "link": self.node.link
         }
 
 
 def exclude_old_nodes(root_node, timestamp):
+    assert isinstance(timestamp, datetime)
     for n in PreOrderIter(root_node):
+        assert isinstance(n.modified, datetime)
         n.include = n.modified >= timestamp
+        # logger.info("Node %r: %r >= %r : %r", n.id, n.modified, timestamp, n.include)
 
 
 def generate_dict_from_tree(node):
@@ -32,7 +42,7 @@ def generate_dict_from_tree(node):
     }
     if node.children:
         parent_dict = {
-            "label": f"{node.title} subpages",
+            "label": f"subpages of '{node.title}'",
             "value": f"children_{node.id}",
         }
         parent_dict["children"] = [
@@ -58,7 +68,6 @@ def patch_streamlit_file_browser_html_preview():
     PREVIEW_HANDLERS[".htm"]=patched_do_html_preview
 
 
-from datetime import datetime
 
 test_pages_response = [
     {
