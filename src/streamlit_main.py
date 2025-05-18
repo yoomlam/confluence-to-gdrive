@@ -17,7 +17,7 @@ from streamlit_tree_select import tree_select
 import gdrive_client
 import main
 import ui_helpers
-from ui_helpers import PageNode
+from ui_helpers import PageNode, StreamlitThreader
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -182,104 +182,38 @@ with tab_export:
         os.makedirs(export_folder, exist_ok=True)
         st.rerun()
 
-    if "exporter_queue" not in ss:
-        ss.exporter_queue = Queue()
-        ss.exporter_alive = False
+    if "root_node" not in ss:
+        st.write("Query pages in order to export them")
+    else:
+        if "export_threader" not in ss:
+            ss.export_threader = StreamlitThreader("Exporter", ss)
 
-    def export_pages(queue: Queue, root_node: Node):
-        try:
-            main.export_html_folder(root_node, export_folder, queue=queue)
-            # for item in range(5):
-            #     print(f"produced item {item}", root_node)
-            #     queue.put(f"exporter_thread: {item}")
-            # time.sleep(1)
-        except Exception as e:
-            queue.put(e)
+        def start_exporter_thread():
+            root_node = ss.root_node
+            def export_pages(queue: Queue):
+                # main.export_html_folder(root_node, export_folder, queue=queue)
+                for item in range(5):
+                    # print(f"{export_folder} produced item A{item}")
+                    queue.put(f"exporter_thread: {export_folder} A{item} {root_node.id}")
+                    time.sleep(2)
 
-    def start_exporter_thread():
-        ss.exporter_log = []
-        ss.exporter_thread = Thread(target=export_pages, args=(ss.exporter_queue, ss.root_node))
-        ss.exporter_thread.start()
-        ss.exporter_alive = True
+            ss.export_threader.start_thread(export_pages)
 
-    if "root_node" in ss:
         st.button(
             "Export checked pages",
             disabled=ss.deleting or ss.exporting,
             on_click=start_exporter_thread,
             key="export_btn",
         )
-    else:
-        st.write("Query pages in order to export them")
-
-    export_one_liner = st.empty()
-
-    if ss.exporter_alive:
-        update_every = 1
-    else:
-        update_every = None
-
-    # export_one_liner.write(f"update_every = {update_every}")
-
-    def show_exporter_status():
-        status = st.status("Exporter running", expanded=True)
-        for log_obj in ss.exporter_log:
-            str_msg = str(log_obj["message"])
-            if "state" in log_obj:
-                status.update(
-                    label=str_msg,
-                    state=log_obj["state"],
-                    expanded=True, #log_obj["state"] != "complete",
-                )
-            else:
-                status.write(str_msg)
-
-    thread_out_cont = st.empty()
-    # del ss.exporter_results
-    if "exporter_thread" in ss:
-        with thread_out_cont:
-            show_exporter_status()
-
-    @st.fragment(run_every=update_every)
-    def update_status():
-        # print("update_status()")
-        if not ss.exporter_alive:
-            # https://docs.streamlit.io/develop/tutorials/execution-flow/trigger-a-full-script-rerun-from-a-fragment
-            st.rerun()  # Needed to update update_every
-            return
-
-        while not ss.exporter_queue.empty():
-            obj = ss.exporter_queue.get()
-            if isinstance(obj, Exception):
-                # Use threading.excepthook to handle thread error
-                ss.exporter_log.append(
-                    {
-                        "message": f"Exporter thread error: {obj}",
-                        "state": "error",
-                    }
-                )
-            else:
-                ss.exporter_log.append({"message": obj})
-
-        if not ss.exporter_thread.is_alive():
-            ss.exporter_alive = False
-            ss.exporter_log.append({"message": "Exporter thread done", "state": "complete"})
-        else:
-            export_one_liner.write("Exporter thread running")
-
-        with thread_out_cont:
-            show_exporter_status()
-
-    if ss.exporter_alive:
-        update_status()
+        ss.export_threader.create_status_container(st)
 
 with tab_preview:
     # st.session_state
 
     @st.fragment
     def file_browser_fragment():
-        if event := st_file_browser(export_folder):
-            location = event["target"]["path"]
+        if fb_event := st_file_browser(export_folder):
+            location = fb_event["target"]["path"]
             st.write(f"Path: {location}")
 
     file_browser_fragment()
@@ -289,6 +223,7 @@ with tab_gdrive:
     folder_id = st.text_input("GDrive folder ID", "1IMr0v3azM_8yaxTCkv2tQo22cSArk06Q")
     st.write(f"Destination folder: https://drive.google.com/drive/folders/{folder_id}")
     if "root_node" in ss:
+        # TODO: List files that would be deleted
         delete_gfiles = st.checkbox("Delete GDrive files", value=False)
         dry_run = st.checkbox("Dry run (creates folders but not files)", value=True)
 
