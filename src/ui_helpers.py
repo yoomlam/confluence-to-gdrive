@@ -98,6 +98,7 @@ class StreamlitThreader:
             try:
                 target(self.queue)
             except Exception as e:
+                logger.exception(e)
                 self.queue.put(e)
 
         self.thread_log.clear()
@@ -133,7 +134,8 @@ class StreamlitThreader:
 
             if self.alive and not self.thread.is_alive():
                 self.alive = False
-                self.state = "complete"
+                if self.state != "error":
+                    self.state = "complete"
                 self.thread_log.append(
                     {"message": f"{self.name} {self.state}", "state": self.state}
                 )
@@ -153,6 +155,7 @@ class StreamlitThreader:
             status = st.status(f"{self.name} {self.state}", expanded=True, state=self.state)
             for log_obj in self.thread_log:
                 str_msg = str(log_obj["message"])
+                status.write(str_msg)
                 if "state" in log_obj:
                     if self.collapse_when_complete and log_obj["state"] == "complete":
                         expanded = False
@@ -163,5 +166,3 @@ class StreamlitThreader:
                         state=log_obj["state"],
                         expanded=expanded,
                     )
-                else:
-                    status.write(str_msg)

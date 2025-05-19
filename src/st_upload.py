@@ -13,16 +13,19 @@ GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID")
 
 ss = st.session_state
 st.header("🚀 Upload to Google Drive")
-st.write(f"[Destination Google drive folder](https://drive.google.com/drive/folders/{GDRIVE_FOLDER_ID})")
+st.write(f"This will upload the HTML files and convert them to Google Documents under [this Google Drive folder](https://drive.google.com/drive/folders/{GDRIVE_FOLDER_ID})")
+
+if "uploading" not in ss:
+    ss.uploading = False
 
 if ss.get("export_threader", None) and ss.export_threader.state == "complete":
     if "upload_threader" not in ss:
         ss.upload_threader = StreamlitThreader("Uploader", ss)
-    ss.uploading = ss.get("upload_btn", False)
 
     dry_run = st.checkbox("Dry run (creates folders but not files)", value=True)
+    skip_existing = st.checkbox("Skip files that already exist in GDrive regardless of differences (used to resume previously failed uploads)", False)
     delete_gfiles = st.checkbox("Delete GDrive files that have no corresponding exported file", value=False)
-    delete_exports = st.checkbox("After all pages are successful uploaded, delete exported files", True)
+    delete_exports = st.checkbox("After all pages successful uploaded, delete exported files", True)
 
     def start_uploader_thread():
         # ss itself cannot be accessed in a different thread,
@@ -36,6 +39,7 @@ if ss.get("export_threader", None) and ss.export_threader.state == "complete":
                 export_folder,
                 GDRIVE_FOLDER_ID,
                 queue,
+                skip_existing=skip_existing,
                 delete_gfiles=delete_gfiles,
                 dry_run=dry_run,
             )
@@ -44,7 +48,9 @@ if ss.get("export_threader", None) and ss.export_threader.state == "complete":
                     shutil.rmtree(export_folder)
                 queue.put(f"Delete exported HTML files: `{export_folder}`")
 
+        ss.uploading = True
         ss.upload_threader.start_thread(upload_files)
+        ss.uploading = False
 
     label="Dry-run " if dry_run else ""
     if delete_gfiles:

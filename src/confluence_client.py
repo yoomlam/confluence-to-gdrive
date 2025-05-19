@@ -8,18 +8,20 @@ from bs4 import BeautifulSoup
 logger = logging.getLogger(__name__)
 
 
-def create_client(url: str | None = None):
+def create_client(url: str | None = None, username: str | None = None, api_key: str | None = None):
     if url is None:
         url = os.environ.get("CONFLUENCE_URL")
     assert url
-    pat = os.environ.get("ATLASSIAN_API_KEY")
-    username = os.environ.get("ATLASSIAN_USERNAME")
-    logger.debug("Keys %r: %r for %r", url, pat, username)
+    if not username:
+        username = os.environ.get("ATLASSIAN_USERNAME")
+    if not api_key:
+        api_key = os.environ.get("ATLASSIAN_API_KEY")
+    logger.info("Confluence %r: %r", url, username)
 
     return Confluence(
         url=url,
         username=username,
-        password=pat,
+        password=api_key,
     )
 
 
@@ -37,8 +39,8 @@ def get_all_entities(api_call) -> list:
 
 
 class ConfluenceClient:
-    def __init__(self, url: str | None = None):
-        self.api = create_client(url)
+    def __init__(self, *, url: str | None = None, username: str | None = None, api_key: str | None = None):
+        self.api = create_client(url=url, username=username, api_key=api_key)
 
     def get_global_spaces(self, limit: int = 30):
         return get_all_entities(

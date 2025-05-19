@@ -48,7 +48,7 @@ with st.expander(
             ss.spaces = _query_confluence_spaces()
 
     if not bool(ss.get("spaces", None)):
-        st.write("Skip if you know the Confluence space key")
+        st.write(f"Skip if you know the Confluence space key. Check out [available communal spaces]({conf_base_url}/wiki/spaces?spaceType=communal).")
         st.button(
             "Query Confluence spaces",
             disabled=bool(ss.get("spaces", None)),
@@ -63,7 +63,7 @@ with st.expander(
         else:
             space_selection = st.empty()
             selected_row = {
-                "space_key": "Click in first column to select",
+                "space_key": "Click in first column to select a space to use. See",
                 "name": "all Confluence spaces",
                 "webui": "/spaces",
             }
@@ -86,7 +86,7 @@ with st.expander(
 
             with space_selection.container():
                 st.write(
-                    f"**{selected_row['space_key']}** ([{selected_row['name']}]({conf_base_url}{selected_row['webui']}))"
+                    f"**{selected_row['space_key']}** [{selected_row['name']}]({conf_base_url}{selected_row['webui']})"
                 )
 
 
@@ -99,13 +99,15 @@ def reset_tree(manual_select_expanded=None):
 
 
 def build_tree_for_pages():
-    logger.info(f"build_tree_for_pages: {space_key} {page_title!r}")
+    logger.info(f"build_tree_for_pages: {ss.space_key} {ss.page_title!r}")
     try:
-        with st.spinner("Querying Confluence pages...", show_time=True):
-            ss.root_node = _build_tree(space_key, page_title)
-            ss.query_error = None
+        if ss.space_key:
+            with st.spinner("Querying Confluence pages...", show_time=True):
+                ss.root_node = _build_tree(ss.space_key, ss.page_title)
+                logger.info(ss.root_node)
+                ss.query_error = None
     except Exception as e:
-        logger.error("while build_tree_for_pages(): %r", e)
+        logger.exception(e)
         ss.query_error = e
         ss.root_node = None
 
@@ -119,28 +121,29 @@ def build_tree_for_pages():
 
 with st.expander("Query a page and its subpages", expanded=not bool(ss.get("root_node", None))):
     space_input_col, space_link_col = st.columns(2, vertical_alignment="bottom")
-    space_key = space_input_col.text_input(
+    space_input_col.text_input(
         "Confluence space key",
-        ss.selected_space["space_key"] if ss.selected_space is not None else "NL",
+        ss.selected_space["space_key"] if ss.selected_space is not None else "NH",
         disabled=ss.selected_space is not None,
+        key="space_key",
     )
-    space_name = ss.selected_space["name"] if ss.selected_space is not None else space_key
-    space_link_col.markdown(f"[{space_name}]({conf_base_url}/spaces/{space_key})")
+    space_name = ss.selected_space["name"] if ss.selected_space is not None else ss.space_key
+    space_link_col.markdown(f"[{space_name}]({conf_base_url}/spaces/{ss.space_key})")
 
-    with st.form("query_pages_form"):
-        page_title = st.text_input("Confluence page title", "Product")  # "overview"
+    with st.form("query_pages_form", enter_to_submit=False):
+        st.text_input("Confluence page title (leave blank to get all pages)", "", key="page_title")
 
         # Gotcha: Use the `on_click=` callback (rather than `if st.button(...):`) to disable the button after a click
         # https://discuss.streamlit.io/t/streamlit-button-disable-enable/31293
         # https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state#use-callbacks-to-update-session-state
         st.form_submit_button(
-            "Query pages",
-            # disabled=bool(ss.get("root_node", None)),
+            "Query page and its subpages",
+            disabled=not ss.space_key,
             on_click=build_tree_for_pages,
         )
 
     if query_error := ss.get("query_error", None):
-        st.write(f"Error querying `{page_title}` in space **{space_key}**: {query_error}")
+        st.write(f"Error querying `{ss.page_title}` in space **{ss.space_key}**: {query_error}")
 
 with st.expander("Filter pages by date", expanded=False):
     # ss.root_node will be None if query fails
@@ -148,7 +151,7 @@ with st.expander("Filter pages by date", expanded=False):
         page_count = sum(1 for _ in PreOrderIter(ss.root_node))
         st.subheader(f"{page_count} pages found")
 
-        with st.form(border=True, key="date_filter_form"):
+        with st.form("date_filter_form", enter_to_submit=False):
             date_col, time_col, filter_btn_col = st.columns(3, vertical_alignment="bottom")
             after_date = date_col.date_input(
                 "after modified date", "2024-08-25", format="YYYY-MM-DD"
@@ -191,8 +194,10 @@ if "manual_select_expanded" not in ss:
 if "tree_key" not in ss:
     ss.tree_key = "page_tree"
 
+if "exporting" not in ss:
+    ss.exporting = False
+
 with st.expander("Manually select pages to export", expanded=ss.manual_select_expanded):
-    ss.exporting = ss.get("export_btn", False)
     if ss.get("root_node", None):
         # st.subheader("Page hierarchy")
         if st.button(
@@ -276,7 +281,9 @@ with st.expander("Export to HTML", expanded=not ss.uploaded_to_gdrive):
 
                     main.export_html_folder(root_node, export_folder, queue=queue)
 
+                ss.uploading = True
                 ss.export_threader.start_thread(export_pages)
+                ss.uploading = False
 
             st.button(
                 "Export checked pages",

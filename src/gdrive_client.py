@@ -112,8 +112,6 @@ class GDriveClient:
         # https://googleapis.github.io/google-api-python-client/docs/dyn/drive_v3.files.html
         # https://developers.google.com/workspace/drive/api/reference/rest/v3/files/create
 
-        # from IPython.core.debugger import set_trace; set_trace()
-
         if file_id:
             if media.resumable():
                 request = self.files_svc.update(
@@ -130,7 +128,6 @@ class GDriveClient:
             request = self.files_svc.create(
                 body=request_body, media_body=media, useContentAsIndexableText=True
             )
-        logger.info("file_id: %r", file_id)
 
         if media.resumable():
             logger.info("Resumable upload for %r", src_file)

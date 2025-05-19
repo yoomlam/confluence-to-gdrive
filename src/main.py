@@ -16,10 +16,10 @@ logger.setLevel(logging.DEBUG)
 load_dotenv()
 load_dotenv(dotenv_path=".env_local", override=True)
 
-
+# TODO: call this with provided username and api_key
 @functools.cache
-def confluence_client():
-    return ConfluenceClient()
+def confluence_client(username: str | None = None, api_key: str | None = None):
+    return ConfluenceClient(username=username, api_key=api_key)
 
 def confluence_base_url():
     return confluence_client().api.url
@@ -46,7 +46,7 @@ def get_confluence_pages(space_key, page_title):
 
 def query_pages_as_tree(space_key, page_title):
     logger.info("space_key=%r, page_title=%r", space_key, page_title)
-    cclient = ConfluenceClient()
+    cclient = confluence_client()
     page_id = cclient.api.get_page_id(space_key, page_title)
     page = cclient.api.get_page_by_id(page_id, expand="body.export_view,history.lastUpdated")
     root_node = _create_node(page)
@@ -81,7 +81,7 @@ class LoggerQueue:
         logger.info(obj)
 
 def export_html_folder(root_node: Node, folder: str, queue: Queue):
-    cclient = ConfluenceClient()
+    cclient = confluence_client()
     os.makedirs(folder, exist_ok=True)
     _recurse_export_html(cclient, root_node, folder, queue)
 
@@ -110,7 +110,7 @@ def gfile_exists_locally(gfile: dict, local_folder: str, file_suffix: str = ".ht
     return os.path.isfile(full_path)
 
 
-def sync_folder_to_gdrive(gclient, export_folder, folder_id, queue: Queue, *, delete_gfiles=False, dry_run=False):
+def sync_folder_to_gdrive(gclient, export_folder, folder_id, queue: Queue, *, skip_existing=True, delete_gfiles=False, dry_run=False):
     existing_gfiles = gclient.files_in_folder(folder_id)
 
     if delete_gfiles:
@@ -154,7 +154,7 @@ def sync_folder_to_gdrive(gclient, export_folder, folder_id, queue: Queue, *, de
             else:
                 subfolder_id = existing_gfolders[e_file]["id"]
             logger.info("Recurse into folder %r", e_file)
-            sync_folder_to_gdrive(gclient, subfolder_path, subfolder_id, queue, delete_gfiles=delete_gfiles, dry_run=dry_run)
+            sync_folder_to_gdrive(gclient, subfolder_path, subfolder_id, queue, skip_existing=skip_existing, delete_gfiles=delete_gfiles, dry_run=dry_run)
             continue
 
         html_filename = os.path.join(export_folder, e_file)
@@ -162,11 +162,15 @@ def sync_folder_to_gdrive(gclient, export_folder, folder_id, queue: Queue, *, de
         # logger.info("title %r", title)
         # TODO: check timestamps and config to determine if update/upload is done
         if title in existing_gfilenames:
-            file_id = existing_gfilenames[title]['id']
-            if not dry_run:
-                logger.info("  Updating %r in GDrive", title)
-                response = gclient.upload_to_google_drive(html_filename, folder_id, title, file_id)
-            queue.put(f"Update `{title}` in GDrive [{folder_id}](https://drive.google.com/drive/folders/{folder_id})")
+            if skip_existing:
+                logger.info("  Skipping existing %r in GDrive", title)
+                queue.put(f"Skipping existing `{title}` in GDrive [{folder_id}](https://drive.google.com/drive/folders/{folder_id})")
+            else:
+                file_id = existing_gfilenames[title]['id']
+                if not dry_run:
+                    logger.info("  Updating %r in GDrive", title)
+                    response = gclient.upload_to_google_drive(html_filename, folder_id, title, file_id)
+                queue.put(f"Update `{title}` in GDrive [{folder_id}](https://drive.google.com/drive/folders/{folder_id})")
         else:
             if not dry_run:
                 logger.info("  Uploading %r", title)
