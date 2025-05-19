@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
-def get_service(service_account_file):
+def get_service(service_account_file: str | None = None):
+    if service_account_file is None:
+        service_account_file = os.environ.get("SERVICE_ACCOUNT_FILE")
+
     creds = service_account.Credentials.from_service_account_file(
         service_account_file, scopes=SCOPES
     )
@@ -50,7 +53,7 @@ TYPES_TO_CONVERT = ['txt', 'html', 'docx', 'xlsx', 'pptx', 'rtf', 'odt']
 
 
 class GDriveClient:
-    def __init__(self, service_account_file):
+    def __init__(self, service_account_file: str | None = None):
         self.service = get_service(service_account_file)
         self.files_svc = self.service.files()
 

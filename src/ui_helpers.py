@@ -79,6 +79,7 @@ class StreamlitThreader:
         self.name = name
         self.queue = Queue()
         self.alive = False
+        self.state = None
 
         self.thread_log = []
         self.thread = None
@@ -101,6 +102,7 @@ class StreamlitThreader:
 
         self.thread_log.clear()
         self.alive = True
+        self.state = "running"
         self.thread = Thread(target=thread_target)
         self.thread.start()
 
@@ -115,15 +117,15 @@ class StreamlitThreader:
         # Else set up recurring fragment to poll of thread status
         @st.fragment(run_every=update_interval)
         def update_status():
-            print("update_status4()")
             while not self.queue.empty():
                 obj = self.queue.get()
                 if isinstance(obj, Exception):
                     # Use threading.excepthook to handle thread error
+                    self.state = "error"
                     self.thread_log.append(
                         {
                             "message": f"{self.name} thread error: {obj}",
-                            "state": "error",
+                            "state": self.state,
                         }
                     )
                 else:
@@ -131,8 +133,9 @@ class StreamlitThreader:
 
             if self.alive and not self.thread.is_alive():
                 self.alive = False
+                self.state = "complete"
                 self.thread_log.append(
-                    {"message": f"{self.name} done", "state": "complete"}
+                    {"message": f"{self.name} {self.state}", "state": self.state}
                 )
                 # Cause create_status_container() is rerun so that update_interval is updated to None
                 st.rerun()
@@ -147,7 +150,7 @@ class StreamlitThreader:
             return
 
         with self.status_container:
-            status = st.status(f"{self.name} running", expanded=True)
+            status = st.status(f"{self.name} {self.state}", expanded=True, state=self.state)
             for log_obj in self.thread_log:
                 str_msg = str(log_obj["message"])
                 if "state" in log_obj:

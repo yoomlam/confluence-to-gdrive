@@ -80,7 +80,7 @@ class LoggerQueue:
     def put(self, obj):
         logger.info(obj)
 
-def export_html_folder(root_node: Node, folder: str, queue: Queue | LoggerQueue):
+def export_html_folder(root_node: Node, folder: str, queue: Queue):
     cclient = ConfluenceClient()
     os.makedirs(folder, exist_ok=True)
     _recurse_export_html(cclient, root_node, folder, queue)
@@ -90,7 +90,7 @@ def _recurse_export_html(cclient, node: Node, folder, queue: Queue, depth=1):
     if node.to_export:
         logger.info("Exporting page %r", node.title)
         filename = cclient.export_page_html(node.id, folder, create_ancestor_folders=True)
-        queue.put(f"Saved page {node.title!r} to `{filename}`")
+        queue.put(f"Saved page `{node.title}` to `{filename}`")
 
     for child in node.children or []:
         _recurse_export_html(cclient, child, folder, queue, depth + 1)
@@ -110,7 +110,7 @@ def gfile_exists_locally(gfile: dict, local_folder: str, file_suffix: str = ".ht
     return os.path.isfile(full_path)
 
 
-def sync_folder_to_gdrive(gclient, export_folder, folder_id, *, delete_gfiles=False, dry_run=False):
+def sync_folder_to_gdrive(gclient, export_folder, folder_id, queue: Queue, *, delete_gfiles=False, dry_run=False):
     existing_gfiles = gclient.files_in_folder(folder_id)
 
     if delete_gfiles:
@@ -123,9 +123,10 @@ def sync_folder_to_gdrive(gclient, export_folder, folder_id, *, delete_gfiles=Fa
                 continue
             logger.info("Checking %r", gfile)
             if not gfile_exists_locally(gfile, export_folder):
-                logger.info("Deleting %r from GDrive %r", gfile["name"], export_folder)
                 if not dry_run:
+                    logger.info("Deleting %r from GDrive %r", gfile["name"], export_folder)
                     gclient.delete_file(gfile["id"])
+                queue.put(f"Delete `{gfile['name']}` from GDrive `{export_folder}`")
 
     # Upload to GDrive, updating if file with same name exists
     existing_gfilenames = {
@@ -138,11 +139,11 @@ def sync_folder_to_gdrive(gclient, export_folder, folder_id, *, delete_gfiles=Fa
         for f in existing_gfiles
         if f["mimeType"] == "application/vnd.google-apps.folder"
     }
-    logger.info("Existing gfiles: %r", existing_gfilenames)
-    logger.info("Existing gfolders: %r", existing_gfolders)
+    # logger.info("Existing gfiles: %r", existing_gfilenames)
+    # logger.info("Existing gfolders: %r", existing_gfolders)
 
     export_files = os.listdir(export_folder)
-    logger.info("Files in folder: %r", export_files)
+    # logger.info("Files in folder: %r", export_files)
     for e_file in export_files:
         # Check if e_file is a folder
         subfolder_path = os.path.join(export_folder, e_file)
@@ -153,24 +154,21 @@ def sync_folder_to_gdrive(gclient, export_folder, folder_id, *, delete_gfiles=Fa
             else:
                 subfolder_id = existing_gfolders[e_file]["id"]
             logger.info("Recurse into folder %r", e_file)
-            sync_folder_to_gdrive(gclient, subfolder_path, subfolder_id, delete_gfiles=delete_gfiles, dry_run=dry_run)
+            sync_folder_to_gdrive(gclient, subfolder_path, subfolder_id, queue, delete_gfiles=delete_gfiles, dry_run=dry_run)
             continue
 
         html_filename = os.path.join(export_folder, e_file)
         title = e_file.removesuffix(".html")
-        logger.info("title %r", title)
+        # logger.info("title %r", title)
         # TODO: check timestamps and config to determine if update/upload is done
         if title in existing_gfilenames:
             file_id = existing_gfilenames[title]['id']
-            logger.info("  Updating %r in GDrive", title)
             if not dry_run:
-                gclient.upload_to_google_drive(html_filename, folder_id, title, file_id)
+                logger.info("  Updating %r in GDrive", title)
+                response = gclient.upload_to_google_drive(html_filename, folder_id, title, file_id)
+            queue.put(f"Update `{title}` in GDrive [{folder_id}](https://drive.google.com/drive/folders/{folder_id})")
         else:
-            logger.info("  Uploading %r to GDrive", title)
             if not dry_run:
-                gclient.upload_to_google_drive(html_filename, folder_id, title)
-
-    # for cp in export_files:
-    #     subchild_pages = get_child_pages(cp['id'])
-    #     logger.info("Subchild pages of %r", cp['title'])
-    #     logger.info([(scp['title'], scp['id']) for scp in subchild_pages])
+                logger.info("  Uploading %r", title)
+                response = gclient.upload_to_google_drive(html_filename, folder_id, title)
+            queue.put(f"Upload `{title}` in GDrive [{folder_id}](https://drive.google.com/drive/folders/{folder_id})")

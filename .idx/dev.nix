@@ -14,7 +14,7 @@
         install =
           "python -m venv .venv && curl -sSL https://install.python-poetry.org | python -";
         # Open editors for the following files by default, if they exist:
-        default.openFiles = [ "README.md" "src/index.html" "main.py" ];
+        default.openFiles = [ "README.md" "src/streamlit_ui.html" ];
       };
       # Runs when a workspace is (re)started
       onStart = { run-server = "poetry run python -m streamlit run src/streamlit_ui.py"; };

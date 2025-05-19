@@ -138,3 +138,17 @@ if hasattr(st, "already_started_server"):
         print(response.json())
         ss.api_response = str(response.json())
     st.write(ss.api_response)
+
+
+if 'is_expanded' not in st.session_state:
+    st.session_state['is_expanded'] = True
+
+def toggle():
+    # st.write(st.session_state['is_expanded'])
+    st.session_state['is_expanded'] = not st.session_state['is_expanded']
+    # st.write(st.session_state['is_expanded'])
+
+with st.expander("XXX", expanded=st.session_state['is_expanded']):
+    st.write("Hi")
+
+st.button("Toggle", on_click=toggle)
