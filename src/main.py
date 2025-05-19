@@ -160,7 +160,7 @@ def sync_folder_to_gdrive(gclient, export_folder, folder_id, queue: Queue, *, sk
         html_filename = os.path.join(export_folder, e_file)
         title = e_file.removesuffix(".html")
         # logger.info("title %r", title)
-        # TODO: check timestamps and config to determine if update/upload is done
+        # TODO: check timestamps to determine if update/upload is needed
         if title in existing_gfilenames:
             if skip_existing:
                 logger.info("  Skipping existing %r in GDrive", title)

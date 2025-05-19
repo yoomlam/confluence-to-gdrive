@@ -81,8 +81,6 @@ class GDriveClient:
         Google's document file import/conversion is better than Python libraries.
         If file_id is not None, the file will be updated; otherwise, a new file will be created.
         """
-        # TODO: check if target_filename exists with different file_id
-
         file_extension = os.path.splitext(src_file)[1][1:]
         if file_extension not in SUPPORTED_MIME_TYPES:
             raise ValueError(f"Unsupported file type: {file_extension}")

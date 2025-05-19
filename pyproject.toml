@@ -33,3 +33,6 @@ include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
 line_length = 100
+
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
