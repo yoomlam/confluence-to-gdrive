@@ -104,13 +104,12 @@ class StreamlitThreader:
 
         if not self.alive:
             # render logs of previous thread run once
-            self.render_status(st)
-            return
+            update_interval=None
 
         # Else set up recurring fragment to poll of thread status
         @st.fragment(run_every=update_interval)
         def update_status():
-            print("update_status()")
+            print("update_status4()")
             while not self.queue.empty():
                 obj = self.queue.get()
                 if isinstance(obj, Exception):
@@ -124,11 +123,13 @@ class StreamlitThreader:
                 else:
                     self.thread_log.append({"message": obj})
 
-            if not self.thread.is_alive():
+            if self.alive and not self.thread.is_alive():
                 self.alive = False
                 self.thread_log.append(
                     {"message": f"{self.name} thread done", "state": "complete"}
                 )
+                # Cause create_status_container() is rerun so that update_interval is updated to None
+                st.rerun()
 
             self.render_status(st)
 

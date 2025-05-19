@@ -86,13 +86,13 @@ def export_html_folder(root_node: Node, folder: str, queue: Queue | LoggerQueue)
     _recurse_export_html(cclient, root_node, folder, queue)
 
 
-def _recurse_export_html(cclient, parent_node: Node, folder, queue: Queue, depth=1):
-    if parent_node.include:
-        logger.info("Exporting page %r", parent_node.title)
-        filename = cclient.export_page_html(parent_node.id, folder, create_ancestor_folders=True)
-        queue.put(f"Saved page {parent_node.title!r} to `{filename}`")
+def _recurse_export_html(cclient, node: Node, folder, queue: Queue, depth=1):
+    if node.to_export:
+        logger.info("Exporting page %r", node.title)
+        filename = cclient.export_page_html(node.id, folder, create_ancestor_folders=True)
+        queue.put(f"Saved page {node.title!r} to `{filename}`")
 
-    for child in parent_node.children or []:
+    for child in node.children or []:
         _recurse_export_html(cclient, child, folder, queue, depth + 1)
 
 

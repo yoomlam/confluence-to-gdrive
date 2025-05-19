@@ -152,27 +152,27 @@ with tab_query:
         pages_panel_mt = st.empty()
         def render_pages_table():
             with pages_panel_mt.container():
-                if ss.get("filtering_disabled", False):
+                if False and ss.get("filtering_disabled", False):
                     st.write("Date filtering disabled due to difference")
                     st.button("Reset", on_click=reset_tree)
                 else:
-                    with st.container(border=True):
+                    with st.form(border=True, key="date_filter_form"):
                         date_col, time_col = st.columns(2)
                         after_date = date_col.date_input(
-                            "after modified date", "2024-08-25", format="YYYY-MM-DD",
-                            disabled=ss.get("filtering_disabled", False)
+                            "after modified date", "2024-08-25", format="YYYY-MM-DD"
                         )
                         after_time = time_col.time_input(
                             "after modified time", "00:00:00", step=timedelta(hours=1)
                         )
                         ss.timestamp = datetime.strptime(f"{after_date}T{after_time}Z", "%Y-%m-%dT%H:%M:%SZ")
 
-                ui_helpers.exclude_old_nodes(ss.root_node, ss.timestamp)
+                        if st.form_submit_button("Filter by modification time"):
+                            ui_helpers.exclude_old_nodes(ss.root_node, ss.timestamp)
                 excluded_count = sum(1 for n in PreOrderIter(ss.root_node) if not n.include)
 
-                if not ss.get("filtering_disabled", False):
+                if True or not ss.get("filtering_disabled", False):
                     st.write(
-                        f"{excluded_count} pages excluded due to modification date filter: {ss.timestamp}"
+                        f"{excluded_count} pages excluded"
                     )
 
                 def page_included_style(val: dict) -> list[str]:
@@ -181,7 +181,7 @@ with tab_query:
                     return [style if attr == "include" else "" for attr in val.keys()]
 
                 ss.filtering_disabled = ss.get("filtering_disabled", False)
-                if ss.get("filtering_disabled", False):
+                if False and ss.get("filtering_disabled", False):
                     column_order = ["link", "modified", "parent"]
                     ss.pages_table_key = "pages_table__no_include_col"
                 else:
@@ -201,42 +201,38 @@ with tab_query:
                     },
                     key=ss.pages_table_key
                 )
-        # render_pages_table()
+        render_pages_table()
     
 with tab_export:
-    if ss.get("root_node", None):
+    ss.exporting = ss.get("export_btn", False)
+    if ss.get("root_node", None) and not ss.exporting:
         st.subheader("Page hierarchy")
         if not ss.get("tree_key", None):
             ss.tree_key=f"page_tree"
             # ss.tree_key=f"page_tree__{ss.timestamp}"
         plh = st.empty()
-        ss.tree_key
         tree_nodes = ui_helpers.generate_dict_from_tree(ss.root_node)
-        checked_ids = [node.id for node in PreOrderIter(ss.root_node) if node.include]
-        # checked_ids
-        tree_state = tree_select(tree_nodes, checked=checked_ids, show_expand_all=True, key=ss.tree_key)
+        included_ids = [node.id for node in PreOrderIter(ss.root_node) if node.include]
+        # included_ids
+        tree_state = tree_select(tree_nodes, checked=included_ids, show_expand_all=True, key=ss.tree_key)
 
         # Update nodes based on tree selections
         for n in PreOrderIter(ss.root_node):
-            n.include = n.id in tree_state["checked"]
-        checked_nodes = [n for n in PreOrderIter(ss.root_node) if n.include]
-        st.write(f"{len(checked_nodes)} pages selected for exporting")
+            n.to_export = n.id in tree_state["checked"]
+        to_export_count = sum(1 for n in PreOrderIter(ss.root_node) if n.to_export)
+        st.write(f"{to_export_count} pages selected for exporting")
 
-        tree_state["checked"]
-        ss.filtering_disabled = set(checked_ids) != set(tree_state["checked"])
+        # tree_state["checked"]
+        ss.filtering_disabled = set(included_ids) != set(tree_state["checked"])
         if ss.filtering_disabled:
             st.write("Different selections than date filtering")
             # ss.tree_key=f"page_tree__{ss.timestamp}_diff"
             with plh:
                 st.button("Reset selection to time filtered selections", on_click=reset_tree)
                 
-        render_pages_table()
-            # ss.pages_table_key = "pages_table__no_include_col"
 
     profile_name = st.text_input("Profile name", "exported_pages")
     ss.export_folder = f"./{profile_name}"
-
-    ss.exporting = ss.get("export_form", False)
 
     if not ss.get("root_node", False):
         st.write("Query pages in order to export them")
@@ -244,9 +240,8 @@ with tab_export:
         if "export_threader" not in ss:
             ss.export_threader = StreamlitThreader("Exporter", ss)
 
-        with st.form("export_form"):
-            # profile_name = st.text_input("Profile name", "exported_pages")
-            # ss.export_folder = f"./{profile_name}"
+        # with st.form("export_form"):
+        with st.container():
             delete_folder = st.checkbox("Delete folder before exporting", True)
 
             def start_exporter_thread():
@@ -254,6 +249,7 @@ with tab_export:
                 # so extract desired variables for export_pages() to use in separate thread
                 root_node = ss.root_node
                 export_folder = ss.export_folder
+                print("root_node=", root_node.id)
 
                 def export_pages(queue: Queue):
                     # check if export_folder exists
@@ -262,19 +258,28 @@ with tab_export:
                         shutil.rmtree(export_folder)
 
                     os.makedirs(export_folder, exist_ok=True)
-                    # main.export_html_folder(root_node, export_folder, queue=queue)
-                    for item in range(5):
-                        print(f"exporter_thread: {export_folder} A{item} {root_node.id}")
-                        queue.put(f"exporter_thread: {export_folder} A{item} {root_node.id}")
-                        time.sleep(2)
+
+                    node_ids = [n.id for n in PreOrderIter(root_node) if n.to_export]
+                    print("node_ids to export:",node_ids)
+                    # Update original n.include so that a refresh retains selections
+                    for n in PreOrderIter(root_node):
+                        n.include = n.to_export
+
+                    main.export_html_folder(root_node, export_folder, queue=queue)
+                    time.sleep(2)
+
+                    # for item in range(5):
+                    #     print(f"exporter_thread: {export_folder} A{item} {root_node.id}")
+                    #     queue.put(f"exporter_thread: {export_folder} A{item} {root_node.id}")
+                        # time.sleep(2)
 
                 ss.export_threader.start_thread(export_pages)
 
-            st.form_submit_button(
+            st.button(
                 "Export checked pages",
-                # disabled=ss.exporting,
+                disabled=ss.exporting or to_export_count==0,
                 on_click=start_exporter_thread,
-                # key="export_btn",
+                key="export_btn",
             )
         ss.export_threader.create_status_container(st)
 
