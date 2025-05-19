@@ -86,7 +86,13 @@ class StreamlitThreader:
         self.status_container = None
         self.collapse_when_complete = False
 
+    # def reset(self):
+    #     self.thread_log.clear()
+    #     self.thread = None
+
     def start_thread(self, target):
+        # self.reset()
+
         def thread_target():
             try:
                 target(self.queue)
@@ -126,7 +132,7 @@ class StreamlitThreader:
             if self.alive and not self.thread.is_alive():
                 self.alive = False
                 self.thread_log.append(
-                    {"message": f"{self.name} thread done", "state": "complete"}
+                    {"message": f"{self.name} done", "state": "complete"}
                 )
                 # Cause create_status_container() is rerun so that update_interval is updated to None
                 st.rerun()
