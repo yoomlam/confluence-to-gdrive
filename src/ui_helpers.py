@@ -10,8 +10,6 @@ logger = logging.getLogger(__name__)
 class PageNode:
     def __init__(self, node: Node):
         self.node = node
-        if not hasattr(node, "include"):
-            node.include = True
 
     def as_row(self):
         return {
@@ -25,9 +23,8 @@ class PageNode:
 
 
 def exclude_old_nodes(root_node, timestamp):
-    assert isinstance(timestamp, datetime)
+    logger.info("exclude_old_nodes(%r, %r)", root_node.title, timestamp)
     for n in PreOrderIter(root_node):
-        assert isinstance(n.modified, datetime)
         n.include = n.modified >= timestamp
         # logger.info("Node %r: %r >= %r : %r", n.id, n.modified, timestamp, n.include)
 
