@@ -6,6 +6,7 @@ services:
     restart: always
     build: .
     ports:
+      # for testing the app directly without SSL; disable this port in production
       - "8501:8501"
     # --server.baseUrlPath specifies the base URL path for the app, that is configured in Nginx project.conf
     command: streamlit run src/streamlit_ui.py --server.baseUrlPath c2g --server.enableCORS=false
@@ -16,5 +17,6 @@ services:
     build: ./nginx
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
       - app
