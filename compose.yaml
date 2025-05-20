@@ -1,0 +1,20 @@
+version: '3'
+
+services:
+  app:
+    container_name: app
+    restart: always
+    build: .
+    ports:
+      - "8501:8501"
+    # --server.baseUrlPath specifies the base URL path for the app, that is configured in Nginx project.conf
+    command: streamlit run src/streamlit_ui.py --server.baseUrlPath c2g --server.enableCORS=false
+
+  nginx:
+    container_name: nginx
+    restart: always
+    build: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - app
