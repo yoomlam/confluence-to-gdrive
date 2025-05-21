@@ -1,0 +1,21 @@
+#!/bin/bash
+# This script is used to start the docker containers for the Confluence to Google Drive tool.
+# Copy it to /etc/rc.local and make it executable with chmod +x /etc/rc.local so it runs on boot.
+# For configuring new instances, may need to run `sudo systemctl enable rc-local.service` to enable the service.
+
+cd /home/ubuntu/confluence-to-gdrive
+
+# When certificates are renewed (every 90 days using certbot), contents from the new files from
+# /etc/letsencrypt/live/confl2gdrive.navalabs.co/* need to be copied to these mounted files under ./nginx/
+cp -U /etc/letsencrypt/live/confl2gdrive.navalabs.co/{fullchain,privkey}.pem ./nginx/
+chown ubuntu ./nginx/*.pem
+# To check scheduled jobs, run: `systemctl list-timers` (look for certbot.renew.timer)
+
+# PEM files:
+# cert.pem — Your Domain Certificate
+# chain.pem — The Certificate Authority (CA) certificate
+# fullchain.pem — The certificate file that contains both the domain and CA certificates
+# privkey.pem — The private key for your domain certificate
+
+# Start the docker containers
+docker-compose up -d
