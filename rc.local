@@ -17,5 +17,8 @@ chown ubuntu ./nginx/*.pem
 # fullchain.pem — The certificate file that contains both the domain and CA certificates
 # privkey.pem — The private key for your domain certificate
 
-# Start the docker containers
-docker-compose up -d
+# Update the local repository
+git pull
+
+# Build and start the docker containers
+docker-compose up --build -d &> /tmp/confl2gdrive.log
