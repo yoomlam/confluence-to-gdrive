@@ -5,9 +5,13 @@ services:
     container_name: app
     restart: always
     build: .
-    ports:
-      # for testing the app directly without SSL; disable this port in production
-      - "8501:8501"
+    # For testing the app directly without SSL; disable this port in production
+    # ports:
+      # - "8501:8501"
+    volumes:
+      # Mount files with secrets
+      - ./.env_local:/app/.env_local:ro
+      - ./gdrive_service_account.json:/app/gdrive_service_account.json:ro
     # --server.baseUrlPath specifies the base URL path for the app, that is configured in Nginx project.conf
     command: streamlit run src/streamlit_ui.py --server.baseUrlPath c2g --server.enableCORS=false
 
@@ -16,7 +20,15 @@ services:
     restart: always
     build: ./nginx
     ports:
-      - "80:80"
+      # Leave port 80 open for use by certbot to renew SSL certificate: sudo certbot renew --dry-run
+      # - "80:80"
       - "443:443"
+    volumes:
+      # Mount SSL certificate files
+      # When certificates are renewed (every 90 days using certbot), contents from the new files from
+      # /etc/letsencrypt/live/confl2gdrive.navalabs.co/* will need to be copied to these mounted files
+      # TODO: create a script to automate this when the instance reboots
+      - ./nginx/fullchain.pem:/etc/ssl/certs/certificate.pem:ro
+      - ./nginx/privkey.pem:/etc/ssl/private/key.pem:ro
     depends_on:
       - app

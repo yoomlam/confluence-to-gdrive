@@ -13,7 +13,9 @@ GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID")
 
 ss = st.session_state
 st.header("🚀 Upload to Google Drive")
-st.write(f"This will upload the HTML files and convert them to Google Documents under [this Google Drive folder](https://drive.google.com/drive/folders/{GDRIVE_FOLDER_ID})")
+st.write(
+    f"This will upload the HTML files and convert them to Google Documents under [this Google Drive folder](https://drive.google.com/drive/folders/{GDRIVE_FOLDER_ID})"
+)
 
 if "uploading" not in ss:
     ss.uploading = False
@@ -23,8 +25,13 @@ if ss.get("export_threader", None) and ss.export_threader.state == "complete":
         ss.upload_threader = StreamlitThreader("Uploader", ss)
 
     dry_run = st.checkbox("Dry run (creates folders but not files)", value=True)
-    skip_existing = st.checkbox("Skip files that already exist in GDrive regardless of differences (used to resume previously failed uploads)", False)
-    delete_gfiles = st.checkbox("Delete GDrive files that have no corresponding exported file", value=False)
+    skip_existing = st.checkbox(
+        "Skip files that already exist in GDrive regardless of differences (used to resume previously failed uploads)",
+        False,
+    )
+    delete_gfiles = st.checkbox(
+        "Delete GDrive files that have no corresponding exported file", value=False
+    )
     delete_exports = st.checkbox("After all pages successful uploaded, delete exported files", True)
 
     def start_uploader_thread():
@@ -52,7 +59,7 @@ if ss.get("export_threader", None) and ss.export_threader.state == "complete":
         ss.upload_threader.start_thread(upload_files)
         ss.uploading = False
 
-    label="Dry-run " if dry_run else ""
+    label = "Dry-run " if dry_run else ""
     if delete_gfiles:
         label += "Synchronize with GDrive (with deletions)"
     else:
@@ -64,6 +71,11 @@ if ss.get("export_threader", None) and ss.export_threader.state == "complete":
         key="upload_btn",
     ):
         ss.uploaded_to_gdrive = True
+    if not dry_run:
+        st.write(
+            "During upload to GDrive, the files are imported as Google Documents. "
+            "This file conversion may take a while, depending on the number of files and their sizes."
+        )
 
     if ss.get("upload_threader", None):
         ss.upload_threader.create_status_container(st)
