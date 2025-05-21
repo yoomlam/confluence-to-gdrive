@@ -8,7 +8,7 @@ cd /home/ubuntu/confluence-to-gdrive
 # When certificates are renewed (every 60 days using certbot, 30 days prior to expiration),
 # contents from the new files from /etc/letsencrypt/... need to be copied
 # to these mounted files under ./nginx/
-cp -U /etc/letsencrypt/live/aisupporttools.navalabs.co/{fullchain,privkey}.pem ./nginx/
+cp -u /etc/letsencrypt/live/aisupporttools.navalabs.co/{fullchain,privkey}.pem ./nginx/
 chown ubuntu ./nginx/*.pem
 # To check the status of the certificates, run: `sudo certbot certificates`
 # To check scheduled jobs, run: `systemctl list-timers` (look for certbot.renew.timer)
