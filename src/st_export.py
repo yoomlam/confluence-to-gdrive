@@ -48,7 +48,7 @@ with st.expander(
             ss.spaces = _query_confluence_spaces()
 
     if not bool(ss.get("spaces", None)):
-        st.write(f"Skip if you know the Confluence space key. Check out [available communal spaces]({conf_base_url}/wiki/spaces?spaceType=communal).")
+        st.write(f"Skip if you know the Confluence space key. Check out [available communal spaces]({conf_base_url}/spaces?spaceType=communal).")
         st.button(
             "Query Confluence spaces",
             disabled=bool(ss.get("spaces", None)),
