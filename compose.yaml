@@ -24,10 +24,7 @@ services:
       # - "80:80"
       - "443:443"
     volumes:
-      # Mount SSL certificate files
-      # When certificates are renewed (every 90 days using certbot), contents from the new files from
-      # /etc/letsencrypt/live/confl2gdrive.navalabs.co/* will need to be copied to these mounted files
-      # TODO: create a script to automate this when the instance reboots
+      # Mount SSL certificate files, which are copied by rc.local
       - ./nginx/fullchain.pem:/etc/ssl/certs/certificate.pem:ro
       - ./nginx/privkey.pem:/etc/ssl/private/key.pem:ro
     depends_on:
