@@ -54,6 +54,7 @@ nondefault_settings = (
 )
 with st.expander("Advanced settings", expanded=nondefault_settings):
     with st.container(border=True):
+        st.write("Use alternative Confluence site and/or credentials to access pages unavailable to the default credentials.")
         st.text_input(
             "Confluence domain URL",
             key="input_confluence_url",
@@ -75,8 +76,9 @@ with st.expander("Advanced settings", expanded=nondefault_settings):
 
     with st.container(border=True):
         st.write(
-            "The profile name is used as the export folder name. The default random name is good for single runs of this tool."
-            "Using the same profile name across runs allows you to collect and manage exported files before they are uploaded to GDrive."
+            "The profile name is used as the export folder name. The default random name is appropriate for typical single runs of this tool."
+            " Using the same profile name across runs allows you to collect and manage exported files before they are uploaded to GDrive."
+            " In this use case, the `Skip files that already exist in GDrive` upload option may be used to resume previous uploads."
         )
         profile_name = st.text_input(
             "Profile name",

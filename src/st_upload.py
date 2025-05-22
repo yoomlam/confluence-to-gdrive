@@ -50,7 +50,7 @@ else:
             key="chkbox_dry_run_upload",
         )
         st.checkbox(
-            "Skip files that already exist in GDrive regardless of differences (used to resume previously failed uploads)",
+            "Skip files that already exist in GDrive regardless of differences (used to resume failed/incomplete uploads)",
             key="chkbox_skip_existing_gdrive_files",
         )
         st.checkbox(
