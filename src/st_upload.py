@@ -6,45 +6,49 @@ import streamlit as st
 
 import gdrive_client
 import main
-from ui_helpers import StreamlitThreader
-
-# Configuration
-GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID")
+import ui_helper
 
 ss = st.session_state
+ui_helper.retain_session_state(ss)
+
 st.header("🚀 Upload to Google Drive")
 st.write(
-    f"This will upload the HTML files and convert them to Google Documents under [this Google Drive folder](https://drive.google.com/drive/folders/{GDRIVE_FOLDER_ID})"
+    f"This will upload the HTML files and convert them to Google Documents under [this Google Drive folder](https://drive.google.com/drive/folders/{ss.input_gdrive_folder_id})."
 )
 
-if "uploading" not in ss:
-    ss.uploading = False
 
-if ss.get("export_threader", None) and ss.export_threader.state == "complete":
-    if "upload_threader" not in ss:
-        ss.upload_threader = StreamlitThreader("Uploader", ss)
-
-    dry_run = st.checkbox("Dry run (creates folders but not files)", value=True)
+if not os.path.exists(ss.export_folder):
+    st.write("Export pages to HTML before uploading to GDrive.")
+else:
+    dry_run = st.checkbox(
+        "Dry run (creates folders but not files)",
+        key="chkbox_dry_run_upload",
+    )
     skip_existing = st.checkbox(
         "Skip files that already exist in GDrive regardless of differences (used to resume previously failed uploads)",
-        False,
+        key="chkbox_skip_existing_gdrive_files",
     )
     delete_gfiles = st.checkbox(
-        "Delete GDrive files that have no corresponding exported file", value=False
+        "Delete GDrive files that have no corresponding exported file",
+        key="chkbox_delete_unmatched_files",
     )
-    delete_exports = st.checkbox("After all pages successful uploaded, delete exported files", True)
+    delete_exports = st.checkbox(
+        "After all pages successful uploaded, delete exported files",
+        key="chkbox_delete_after_upload",
+    )
 
     def start_uploader_thread():
         # ss itself cannot be accessed in a different thread,
         # so extract desired variables for upload_files() to use in separate thread
-        export_folder = ss.export_folder
-        gclient = gdrive_client.GDriveClient()
+        _gclient = gdrive_client.GDriveClient()
+        _source_folder = ss.export_folder
+        _gdrive_folder_id = ss.input_gdrive_folder_id
 
         def upload_files(queue: Queue):
             main.sync_folder_to_gdrive(
-                gclient,
-                export_folder,
-                GDRIVE_FOLDER_ID,
+                _gclient,
+                _source_folder,
+                _gdrive_folder_id,
                 queue,
                 skip_existing=skip_existing,
                 delete_gfiles=delete_gfiles,
@@ -52,8 +56,8 @@ if ss.get("export_threader", None) and ss.export_threader.state == "complete":
             )
             if delete_exports:
                 if not dry_run:
-                    shutil.rmtree(export_folder)
-                queue.put(f"Delete exported HTML files: `{export_folder}`")
+                    shutil.rmtree(_source_folder)
+                queue.put(f"Delete exported HTML files: `{_source_folder}`")
 
         ss.uploading = True
         ss.upload_threader.start_thread(upload_files)
@@ -64,20 +68,16 @@ if ss.get("export_threader", None) and ss.export_threader.state == "complete":
         label += "Synchronize with GDrive (with deletions)"
     else:
         label += "Upload to GDrive"
-    if st.button(
+    st.button(
         label=label,
         disabled=ss.uploading,
         on_click=start_uploader_thread,
-        key="upload_btn",
-    ):
-        ss.uploaded_to_gdrive = True
+        # key="upload_btn",
+    )
     if not dry_run:
         st.write(
             "During upload to GDrive, the files are imported as Google Documents. "
             "This file conversion may take a while, depending on the number of files and their sizes."
         )
 
-    if ss.get("upload_threader", None):
-        ss.upload_threader.create_status_container(st)
-else:
-    st.write("Export pages to HTML before uploading to GDrive")
+    ss.upload_threader.create_status_container(st)

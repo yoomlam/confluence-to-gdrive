@@ -1,10 +1,83 @@
 import logging
 import os
+import time
+
 from anytree import Node, PreOrderIter
 from streamlit_embeded import st_embeded
-from datetime import datetime
+from main import ConfluenceOps
 
 logger = logging.getLogger(__name__)
+
+
+def retain_session_state(ss):
+    # Set session state variables that we want to retain between pages,
+    # i.e., variables that are shared across pages and variables used to set UI state
+    # https://docs.streamlit.io/develop/concepts/architecture/widget-behavior#interrupting-the-widget-clean-up-process
+    # https://docs.streamlit.io/develop/concepts/architecture/widget-behavior#save-widget-values-in-session-state-to-preserve-them-between-pages
+    for var in ss.keys():
+        if var in ss and not var.startswith("FormSubmitter"):
+            ss[var] = ss[var]
+    set_initial_state(ss)
+
+
+def set_initial_state(ss):
+    initial_vals = {
+        # The following are set here for convenience
+        # Every editable input widget should use one of these variables for the `key` parameter
+        # to ensure that the value is retained as the user switches between pages
+        # Caution: Note that since streamlit's internal callbacks for
+        # input widgets __inside of forms__ do not get called,
+        # the input widget values are not saved to session state
+        # until the form_submit_button is clicked.
+        # This is problematic if the button is disabled for certain input values.
+        # https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state#forms-and-callbacks
+        "input_confluence_url": "https://navasage.atlassian.net",
+        "input_atl_username": "",
+        "input_atl_api_key": "",
+        "input_profile_name": f"profile_{time.time()}",
+        "input_space_key": "",
+        "input_page_title": "",
+        "input_gdrive_folder_id": os.environ.get("GDRIVE_FOLDER_ID"),
+        "chkbox_change_gdrive_folder_id": False,
+        "chkbox_delete_folder_before_export": True,
+        "chkbox_dry_run_upload": True,
+        "chkbox_skip_existing_gdrive_files": False,
+        "chkbox_delete_unmatched_files": False,
+        "chkbox_delete_after_upload": True,
+        # Populated upon data retrieval
+        "spaces": None,  # Populated if user queries spaces
+        "root_node": None,  # Populated when user queries pages
+        # Derived from input fields
+        "space_name": "",  # Derived from input_space_key
+        # Used to affect UI state
+        "tree_key": f"page_tree_{time.time()}",
+        "space_selected": False,
+        "query_error": None,
+        "reset_previous_export": False,
+        # "list_spaces_expanded": True,
+        "manual_select_expanded": False,
+        # Exporting from Confluence
+        "exporting": False,
+        "export_threader": StreamlitThreader("Exporter", ss),
+        # Uploading to GDrive
+        "uploading": False,
+        "upload_threader": StreamlitThreader("Uploader", ss),
+    }
+    for var, val in initial_vals.items():
+        if var not in ss:
+            ss[var] = val
+
+    if "export_folder" not in ss:
+        ss.export_folder = f"./exports/{ss.input_profile_name}"
+
+
+def create_confluence_ops(ss):
+    return ConfluenceOps(
+        # Empty values will default to using environment variables
+        url=ss.input_confluence_url,
+        username=ss.input_atl_username,
+        api_key=ss.input_atl_api_key,
+    )
 
 
 class PageNode:
@@ -77,11 +150,11 @@ class StreamlitThreader:
     def __init__(self, name: str, st_session):
         self.ss = st_session
         self.name = name
-        self.queue = Queue()
+        self.queue = Queue[str]()
         self.alive = False
         self.state = None
 
-        self.thread_log = []
+        self.thread_log: list[dict] = []
         self.thread = None
 
         self.status_container = None
@@ -106,6 +179,7 @@ class StreamlitThreader:
         self.state = "running"
         self.thread = Thread(target=thread_target)
         self.thread.start()
+        # TODO: interrupt thread in case the page is refreshed
 
     def create_status_container(self, st, update_interval=1):
         "Insert container to show thread's log/status for previous/current run"
@@ -113,7 +187,7 @@ class StreamlitThreader:
 
         if not self.alive:
             # render logs of previous thread run once
-            update_interval=None
+            update_interval = None
 
         # Else set up recurring fragment to poll of thread status
         @st.fragment(run_every=update_interval)

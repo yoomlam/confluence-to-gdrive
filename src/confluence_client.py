@@ -14,8 +14,10 @@ def create_client(url: str | None = None, username: str | None = None, api_key: 
     assert url
     if not username:
         username = os.environ.get("ATLASSIAN_USERNAME")
+    assert username
     if not api_key:
         api_key = os.environ.get("ATLASSIAN_API_KEY")
+    assert api_key
     logger.info("Confluence %r: %r", url, username)
 
     return Confluence(
@@ -45,7 +47,7 @@ class ConfluenceClient:
     def get_global_spaces(self, limit: int = 30):
         return get_all_entities(
             lambda start: self.api.get_all_spaces(
-                start=start, limit=limit, space_type="global"
+                start=start, limit=limit, space_type="global", expand="homepage"
             )
         )
 
