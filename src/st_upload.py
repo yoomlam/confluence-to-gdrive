@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 from queue import Queue
 
@@ -13,7 +14,9 @@ ui_helper.retain_session_state(ss)
 
 st.header("🚀 Upload to Google Drive")
 st.write(
-    f"This will upload the HTML files and convert them to Google Documents under [this Google Drive folder](https://drive.google.com/drive/folders/{ss.input_gdrive_folder_id})."
+    "This will upload the HTML files and convert them to Google Documents"
+    f" under [this Google Drive folder](https://drive.google.com/drive/folders/{ss.input_gdrive_folder_id})"
+    " with the same folder structure."
 )
 
 
@@ -24,7 +27,8 @@ else:
     def start_uploader_thread():
         # ss itself cannot be accessed in a different thread,
         # so extract desired variables for upload_files() to use in separate thread
-        _gclient = gdrive_client.GDriveClient()
+        service_info = json.loads(ss.input_gdrive_credentials) if ss.input_gdrive_credentials else None
+        _gclient = gdrive_client.GDriveClient(service_info)
         _source_folder = ss.export_folder
         _gdrive_folder_id = ss.input_gdrive_folder_id
         _dry_run = ss.chkbox_dry_run_upload
@@ -32,6 +36,8 @@ else:
         _delete_gfiles = ss.chkbox_delete_unmatched_files
 
         def upload_files(queue: Queue):
+            if _dry_run:
+                queue.put("Starting dry run ...")
             main.sync_folder_to_gdrive(
                 _gclient,
                 _source_folder,
@@ -76,6 +82,10 @@ else:
 
     ss.upload_threader.create_status_container(st)
 
-    if st.button(f"Delete exported files in `{ss.export_folder}`"):
-        shutil.rmtree(ss.export_folder)
-        st.write(f"Delete exported HTML files: `{ss.export_folder}`")
+    with st.container(border=True):
+        st.write(
+            f"Once upload is complete, delete the exported HTML files in `{ss.export_folder}` if you're done with them."
+        )
+        if st.button("Delete exported files"):
+            shutil.rmtree(ss.export_folder)
+            st.write(f"Delete exported files: `{ss.export_folder}`")

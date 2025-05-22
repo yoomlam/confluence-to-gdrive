@@ -41,8 +41,8 @@ st.header("➡️ Export Confluence pages")
 if "confl_base_url" not in ss:
     ss.confl_base_url = ui_helper.create_confluence_ops(ss).confluence_api_url()
 
-spaces_expanded = (not ss.root_node and not bool(ss.spaces)) or not ss.space_name
-with st.expander("List spaces", expanded=spaces_expanded):
+spaces_expanded = (not ss.root_node and not ss.spaces) or not ss.space_name
+with st.expander("List spaces", expanded=bool(spaces_expanded)):
 
     def query_spaces():
         with st.spinner(f"Querying {ss.confl_base_url}...", show_time=True):
@@ -56,7 +56,7 @@ with st.expander("List spaces", expanded=spaces_expanded):
         )
         spaces_left_col.button(
             "Query Confluence spaces",
-            disabled=not ss.confl_base_url or bool(ss.spaces),
+            disabled=bool(not ss.confl_base_url or ss.spaces),
             on_click=query_spaces,
         )
 
@@ -143,7 +143,7 @@ with st.expander("**Query page and its subpages**", expanded=not ss.root_node):
     ss.space_name = get_space_name()
     if ss.input_space_key:
         space_link_col.markdown(
-            f"[{ss.space_name or "not found"}]({ss.confl_base_url}/spaces/{ss.input_space_key})"
+            f"[{ss.space_name or 'not found'}]({ss.confl_base_url}/spaces/{ss.input_space_key})"
         )
     # if found_space:
     #     st.write(f"Homepage: `{found_space["homepage_title"]}`")
@@ -157,7 +157,9 @@ with st.expander("**Query page and its subpages**", expanded=not ss.root_node):
     # Gotcha: Use the `on_click=` callback (rather than `if st.button(...):`) to disable the button after a click
     # https://discuss.streamlit.io/t/streamlit-button-disable-enable/31293
     # https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state#use-callbacks-to-update-session-state
-    query_pages_input_missing = not ss.confl_base_url or not ss.input_space_key or not ss.input_page_title
+    query_pages_input_missing = (
+        not ss.confl_base_url or not ss.input_space_key or not ss.input_page_title
+    )
     st.button(
         "Query page and its subpages",
         disabled=query_pages_input_missing,

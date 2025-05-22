@@ -1,7 +1,7 @@
 import os
 import logging
+import json
 
-import googleapiclient.discovery
 import googleapiclient.errors
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -12,13 +12,18 @@ logger = logging.getLogger(__name__)
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
-def get_service(service_account_file: str | None = None):
-    if service_account_file is None:
-        service_account_file = os.environ.get("SERVICE_ACCOUNT_FILE")
+def get_service(account_info: dict | None = None, *, account_file: str | None = None):
+    if account_info is None:
+        if account_file is None:
+            account_file = os.environ.get("SERVICE_ACCOUNT_FILE")
+        if account_file:
+            with open(account_file, encoding="utf-8") as f:
+                account_info = json.load(f)
 
-    creds = service_account.Credentials.from_service_account_file(
-        service_account_file, scopes=SCOPES
-    )
+    if not account_info:
+        raise ValueError("No account info or file provided")
+
+    creds = service_account.Credentials.from_service_account_info(account_info, scopes=SCOPES)
     # https://googleapis.github.io/google-api-python-client/docs/dyn/drive_v3.html
     return build("drive", "v3", credentials=creds)
 
@@ -36,25 +41,25 @@ def get_all_pages_using_next_page_token(api_call) -> list:
 
 
 SUPPORTED_MIME_TYPES = {
-    'txt': 'text/plain',
-    'html': 'text/html',
-    'md': 'text/markdown',
-    'csv': 'text/csv',
-    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'rtf': 'application/rtf',
-    'odt': 'application/vnd.oasis.opendocument.text',
-    'json': 'application/json',
-    'pdf': 'application/pdf',
+    "txt": "text/plain",
+    "html": "text/html",
+    "md": "text/markdown",
+    "csv": "text/csv",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "rtf": "application/rtf",
+    "odt": "application/vnd.oasis.opendocument.text",
+    "json": "application/json",
+    "pdf": "application/pdf",
 }
 
-TYPES_TO_CONVERT = ['txt', 'html', 'docx', 'xlsx', 'pptx', 'rtf', 'odt']
+TYPES_TO_CONVERT = ["txt", "html", "docx", "xlsx", "pptx", "rtf", "odt"]
 
 
 class GDriveClient:
-    def __init__(self, service_account_file: str | None = None):
-        self.service = get_service(service_account_file)
+    def __init__(self, account_info: dict | None = None, *, service_account_file: str | None = None):
+        self.service = get_service(account_info, account_file=service_account_file)
         self.files_svc = self.service.files()
 
     def files_in_folder(self, folder_id) -> list[dict]:

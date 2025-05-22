@@ -36,13 +36,14 @@ def set_missing_initial_state(ss):
         "input_confluence_url": "https://navasage.atlassian.net",
         "input_atl_username": "",
         "input_atl_api_key": "",
+        "input_gdrive_credentials": "",
         "input_profile_name": f"profile_{time.time()}",
         "input_space_key": "",
         "input_page_title": "",
         "input_gdrive_folder_id": os.environ.get("GDRIVE_FOLDER_ID"),
         "chkbox_change_gdrive_folder_id": False,
-        "chkbox_delete_folder_before_export": True,
-        "chkbox_dry_run_upload": True,
+        "chkbox_delete_folder_before_export": False,
+        "chkbox_dry_run_upload": False,
         "chkbox_skip_existing_gdrive_files": False,
         "chkbox_delete_unmatched_files": False,
         # Populated upon data retrieval
@@ -179,10 +180,10 @@ class StreamlitThreader:
         # TODO: interrupt thread in case the page is refreshed
 
     def is_alive(self):
-        return bool(self.thread) and self.thread.is_alive()
+        return bool(self.thread and self.thread.is_alive())
 
     def is_done(self):
-        return bool(self.thread) and not self.thread.is_alive()
+        return bool(self.thread and not self.thread.is_alive())
 
     def create_status_container(self, st, update_interval=1):
         "Insert container to show thread's log/status for previous/current run"

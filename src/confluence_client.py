@@ -41,7 +41,9 @@ def get_all_entities(api_call) -> list:
 
 
 class ConfluenceClient:
-    def __init__(self, *, url: str | None = None, username: str | None = None, api_key: str | None = None):
+    def __init__(
+        self, *, url: str | None = None, username: str | None = None, api_key: str | None = None
+    ):
         self.api = create_client(url=url, username=username, api_key=api_key)
 
     def get_global_spaces(self, limit: int = 30):
@@ -69,11 +71,11 @@ class ConfluenceClient:
         page = self.api.get_page_by_id(page_id, expand="space,ancestors,body.export_view")
         page_link = f"{page['_links']['base']}{page['_links']['webui']}"
         if create_ancestor_folders:
-            parent_folders=[ap['title'] for ap in page['ancestors']]
-            folder=os.path.join(folder, page['space']['name'], *parent_folders)
+            parent_folders = [ap["title"] for ap in page["ancestors"]]
+            folder = os.path.join(folder, page["space"]["name"], *parent_folders)
         os.makedirs(folder, exist_ok=True)
 
-        html_value=page['body']['export_view']['value']
+        html_value = page["body"]["export_view"]["value"]
         tree = BeautifulSoup(html_value, "html.parser")
         valid_filename = re.sub(r"/", "_", page["title"].strip())
         html_filename = os.path.join(folder, f"{valid_filename}.html")
