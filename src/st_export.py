@@ -11,7 +11,7 @@ from anytree import PreOrderIter
 from streamlit_tree_select import tree_select
 
 import ui_helper
-from ui_helper import PageNode
+from ui_helper import PageNode, StreamlitThreader
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -41,21 +41,20 @@ st.header("➡️ Export Confluence pages")
 if "confl_base_url" not in ss:
     ss.confl_base_url = ui_helper.create_confluence_ops(ss).confluence_api_url()
 
-with st.expander(
-    "List spaces",
-    expanded=not (ss.space_name or ss.root_node) or (bool(ss.spaces) and not ss.space_selected),
-):
+spaces_expanded = (not ss.root_node and not bool(ss.spaces)) or not ss.space_name
+with st.expander("List spaces", expanded=spaces_expanded):
 
     def query_spaces():
         with st.spinner(f"Querying {ss.confl_base_url}...", show_time=True):
             ss.spaces = _query_confluence_spaces()
 
     if not ss.spaces:
-        st.write(
+        spaces_left_col, spaces_right_col = st.columns(2, vertical_alignment="bottom")
+        spaces_right_col.html(
             "Skip if you know the Confluence space key."
-            # "Check out [available communal spaces]({ss.confl_base_url}/spaces?spaceType=communal)."
+            f"<br>Check out <a target='_blank' href='{ss.confl_base_url}/spaces?spaceType=communal'>available communal spaces</a>."
         )
-        st.button(
+        spaces_left_col.button(
             "Query Confluence spaces",
             disabled=not ss.confl_base_url or bool(ss.spaces),
             on_click=query_spaces,
@@ -80,8 +79,7 @@ with st.expander(
                 selection = spaces_df.iloc[rows[0]].to_dict()
                 ss.space_selected = True
                 ss.input_space_key = selection["space_key"]
-                ss.space_name = selection["name"]
-                ss.input_page_title = selection["homepage_title"]
+                # ss.space_name = selection["name"]
             else:
                 ss.space_selected = False
                 # Do not set any other ss values since that would override the user's input when the page is rerun
@@ -91,6 +89,9 @@ with st.expander(
 
 
 def reset_tree(manual_select_expanded=None):
+    if ss.tree_key in ss:
+        # Remove the current widget
+        del ss[ss.tree_key]
     # set a new key so that the tree width is rerendered
     ss.tree_key = f"page_tree_{time.time()}"
 
@@ -100,25 +101,24 @@ def reset_tree(manual_select_expanded=None):
 
 def build_tree_for_pages():
     logger.info(f"build_tree_for_pages: {ss.input_space_key} {ss.input_page_title!r}")
+    # Reset any previous query error
+    ss.query_error = None
+    ss.root_node = None
     try:
-        if ss.input_space_key:
+        if ss.input_space_key and ss.input_page_title:
             with st.spinner("Querying Confluence pages...", show_time=True):
                 ss.root_node = _build_tree(ss.input_space_key, ss.input_page_title)
-                # Reset any previous query error
-                ss.query_error = None
     except Exception as e:
         logger.exception(e)
         ss.query_error = e
-        ss.root_node = None
 
+    print("ss.query_error=", ss.query_error)
     logger.info(ss.root_node)
     reset_tree()
     ss.reset_previous_export = True
 
 
-with st.expander(
-    "**Query page and its subpages**", expanded=bool(ss.query_error) or not ss.root_node
-):
+with st.expander("**Query page and its subpages**", expanded=not ss.root_node):
 
     def find_space(space_key):
         try:
@@ -127,22 +127,26 @@ with st.expander(
             st.error(f"Space key `{ss.input_space_key}` not found!")
         return None
 
+    def get_space_name():
+        if ss.spaces and ss.input_space_key:
+            if found_space := find_space(ss.input_space_key):
+                return found_space["name"]
+            return None
+        return ss.input_space_key
+
     space_input_col, space_link_col = st.columns(2, vertical_alignment="bottom")
     space_input_col.text_input(
         "Confluence space key",
         key="input_space_key",
         disabled=ss.space_selected,
     )
-    if ss.spaces:
-        if found_space := find_space(ss.input_space_key):
-            ss.space_name = found_space["name"]
-            if not ss.input_page_title:
-                ss.input_page_title = found_space["homepage_title"]
-    else:
-        ss.space_name = ss.input_space_key
-    space_link_col.markdown(
-        f"[{ss.space_name or 'not found'}]({ss.confl_base_url}/spaces/{ss.input_space_key})"
-    )
+    ss.space_name = get_space_name()
+    if ss.input_space_key:
+        space_link_col.markdown(
+            f"[{ss.space_name or "not found"}]({ss.confl_base_url}/spaces/{ss.input_space_key})"
+        )
+    # if found_space:
+    #     st.write(f"Homepage: `{found_space["homepage_title"]}`")
 
     st.text_input(
         "Confluence page title",  # TODO: "(leave blank to get all pages)",
@@ -153,9 +157,10 @@ with st.expander(
     # Gotcha: Use the `on_click=` callback (rather than `if st.button(...):`) to disable the button after a click
     # https://discuss.streamlit.io/t/streamlit-button-disable-enable/31293
     # https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state#use-callbacks-to-update-session-state
+    query_pages_input_missing = not ss.confl_base_url or not ss.input_space_key or not ss.input_page_title
     st.button(
         "Query page and its subpages",
-        disabled=not ss.confl_base_url or not ss.input_space_key or not ss.input_page_title,
+        disabled=query_pages_input_missing,
         on_click=build_tree_for_pages,
     )
 
@@ -238,8 +243,8 @@ with st.expander("Manually select pages to export", expanded=ss.manual_select_ex
 
 
 if ss.reset_previous_export:
-    if "export_threader" in ss:
-        del ss.export_threader
+    if ss.export_threader.is_done():
+        ss.export_threader = StreamlitThreader("Exporter", ss)
     ss.reset_previous_export = False
 
 with st.expander("**Export to HTML**", expanded=True):
@@ -282,16 +287,14 @@ with st.expander("**Export to HTML**", expanded=True):
 
                     _export_html_folder(_root_node, _export_folder, queue=queue)
 
-                ss.exporting = True
                 ss.export_threader.start_thread(export_pages)
-                ss.exporting = False
 
             st.button(
                 "Export checked pages",
-                disabled=ss.exporting or not to_export_node_ids,
+                disabled=ss.export_threader.is_alive() or not to_export_node_ids,
                 on_click=start_exporter_thread,
-                # key="export_btn",
             )
 
-if ss.root_node and ss.export_threader:
-    ss.export_threader.create_status_container(st)
+# if ss.root_node:
+ss.export_threader.create_status_container(st)
+# ss

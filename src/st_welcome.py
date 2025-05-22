@@ -24,14 +24,18 @@ st.write(
 
 st.write(
     """Since Confluence pages are being converted to Google documents during the uploading,
-    it can take some time depending on the number and length of the pages and Google's servers.
-    Start with a small number of pages (around 30) by exporting pages with few nested subpages and/or filtering by modification date."""
+    it can take some time depending on the number and size of the pages, as well as Google's servers.
+    Start with a small number of pages (around 30)
+    by exporting pages with few nested subpages and/or filtering by modification date.
+    The tool has been tested with 300+ pages, but it does take many minutes to complete."""
 )
 
 st.write(
     """Once this procedure is completed for a batch of Confluence pages, refresh this page to start anew.
-    No data is stored on the backend except for any temporary exported Confluence pages that aren't deleted,
-    so refreshing this page will clear any browser session data."""
+    No data is stored on the backend, so refreshing this page will clear any browser session data,
+    including the Advanced settings below.
+    The one exception to this are exported Confluence pages (i.e., HTML files) that aren't deleted
+    because you didn't click the `Delete exported files` button"""
 )
 
 st.write(

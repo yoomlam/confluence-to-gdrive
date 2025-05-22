@@ -1,10 +1,12 @@
 import logging
 import os
 import time
+from queue import Queue
+from threading import Thread
 
 from anytree import Node, PreOrderIter
-from streamlit_embeded import st_embeded
 from main import ConfluenceOps
+from streamlit_embeded import st_embeded
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +19,10 @@ def retain_session_state(ss):
     for var in ss.keys():
         if var in ss and not var.startswith("FormSubmitter"):
             ss[var] = ss[var]
-    set_initial_state(ss)
+    set_missing_initial_state(ss)
 
 
-def set_initial_state(ss):
+def set_missing_initial_state(ss):
     initial_vals = {
         # The following are set here for convenience
         # Every editable input widget should use one of these variables for the `key` parameter
@@ -43,12 +45,11 @@ def set_initial_state(ss):
         "chkbox_dry_run_upload": True,
         "chkbox_skip_existing_gdrive_files": False,
         "chkbox_delete_unmatched_files": False,
-        "chkbox_delete_after_upload": True,
         # Populated upon data retrieval
         "spaces": None,  # Populated if user queries spaces
         "root_node": None,  # Populated when user queries pages
         # Derived from input fields
-        "space_name": "",  # Derived from input_space_key
+        "space_name": None,  # Derived from input_space_key
         # Used to affect UI state
         "tree_key": f"page_tree_{time.time()}",
         "space_selected": False,
@@ -57,10 +58,8 @@ def set_initial_state(ss):
         # "list_spaces_expanded": True,
         "manual_select_expanded": False,
         # Exporting from Confluence
-        "exporting": False,
         "export_threader": StreamlitThreader("Exporter", ss),
         # Uploading to GDrive
-        "uploading": False,
         "upload_threader": StreamlitThreader("Uploader", ss),
     }
     for var, val in initial_vals.items():
@@ -142,8 +141,6 @@ def patch_streamlit_file_browser_html_preview():
 
 
 # Streamlit helpers
-from queue import Queue
-from threading import Thread
 
 
 class StreamlitThreader:
@@ -151,21 +148,23 @@ class StreamlitThreader:
         self.ss = st_session
         self.name = name
         self.queue = Queue[str]()
-        self.alive = False
-        self.state = None
-
         self.thread_log: list[dict] = []
-        self.thread = None
-
-        self.status_container = None
         self.collapse_when_complete = False
+        self.state = None
+        self.thread = None
+        self.status_container = None
+        self.finalized = False
 
-    # def reset(self):
-    #     self.thread_log.clear()
-    #     self.thread = None
+    def reset(self):
+        # TODO: check if thread is alive and join it, and queue is empty
+        self.thread_log.clear()
+        self.state = None
+        self.thread = None
+        self.status_container = None
+        self.finalized = False
 
     def start_thread(self, target):
-        # self.reset()
+        self.reset()
 
         def thread_target():
             try:
@@ -174,24 +173,29 @@ class StreamlitThreader:
                 logger.exception(e)
                 self.queue.put(e)
 
-        self.thread_log.clear()
-        self.alive = True
         self.state = "running"
         self.thread = Thread(target=thread_target)
         self.thread.start()
         # TODO: interrupt thread in case the page is refreshed
 
+    def is_alive(self):
+        return bool(self.thread) and self.thread.is_alive()
+
+    def is_done(self):
+        return bool(self.thread) and not self.thread.is_alive()
+
     def create_status_container(self, st, update_interval=1):
         "Insert container to show thread's log/status for previous/current run"
         self.status_container = st.empty()
 
-        if not self.alive:
-            # render logs of previous thread run once
+        if not self.thread or not self.thread.is_alive():
+            # Don't need to repeatedly update status
             update_interval = None
 
-        # Else set up recurring fragment to poll of thread status
+        # Set up possibly recurring fragment to poll of thread status
         @st.fragment(run_every=update_interval)
-        def update_status():
+        def update_status__fragment():
+            logger.info("%s.update_status__fragment(%r)", self.name, update_interval)
             while not self.queue.empty():
                 obj = self.queue.get()
                 if isinstance(obj, Exception):
@@ -206,19 +210,22 @@ class StreamlitThreader:
                 else:
                     self.thread_log.append({"message": obj})
 
-            if self.alive and not self.thread.is_alive():
-                self.alive = False
-                if self.state != "error":
-                    self.state = "complete"
-                self.thread_log.append(
-                    {"message": f"{self.name} {self.state}", "state": self.state}
-                )
-                # Cause create_status_container() is rerun so that update_interval is updated to None
-                st.rerun()
+            if self.is_done():
+                if not self.finalized:
+                    # Append a final message to the log
+                    if self.state != "error":
+                        self.state = "complete"
+                    self.thread_log.append(
+                        {"message": f"{self.name} {self.state}", "state": self.state}
+                    )
+                    self.finalized = True
+
+                    # Cause create_status_container() is rerun so that update_interval is updated to None
+                    st.rerun()
 
             self.render_status(st)
 
-        update_status()
+        update_status__fragment()
 
     def render_status(self, st):
         "Use st.status widget to show the thread status"
